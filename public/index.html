@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Home Dashboard</title>
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <!-- Navigation dots -->
+  <nav class="section-nav" id="sectionNav">
+    <button class="nav-dot active" data-section="activities" title="Activities">
+      <span class="nav-icon">🏃</span>
+      <span class="nav-label">Activities</span>
+    </button>
+    <button class="nav-dot" data-section="leaderboard" title="Leaderboard">
+      <span class="nav-icon">🏆</span>
+      <span class="nav-label">Leaderboard</span>
+    </button>
+    <button class="nav-dot" data-section="weather" title="Weather">
+      <span class="nav-icon">🌤</span>
+      <span class="nav-label">Weather</span>
+    </button>
+    <button class="nav-dot" data-section="notes" title="Notes">
+      <span class="nav-icon">📝</span>
+      <span class="nav-label">Notes</span>
+    </button>
+    <button class="nav-dot" data-section="photos" title="Photos">
+      <span class="nav-icon">📸</span>
+      <span class="nav-label">Photos</span>
+    </button>
+  </nav>
+
+  <!-- Top status bar -->
+  <div class="status-bar" id="statusBar">
+    <span class="status-clock" id="clock"></span>
+    <span class="status-date" id="dateDisplay"></span>
+    <span class="status-strava" id="stravaStatus">Strava: loading...</span>
+    <button class="btn-icon" id="btnRefreshStrava" title="Refresh Strava data">↻</button>
+    <button class="btn-icon" id="btnAutoplay" title="Toggle auto-cycle">▶</button>
+    <button class="btn-icon" id="btnSetup" title="Setup">⚙</button>
+  </div>
+
+  <!-- ==================== SECTIONS ==================== -->
+  <main class="dashboard">
+
+    <!-- Activities Section -->
+    <section class="panel active" id="section-activities">
+      <div class="panel-header">
+        <h1 class="panel-title">Recent Activities</h1>
+        <div class="activity-filter" id="activityFilter">
+          <button class="filter-btn active" data-type="all">All</button>
+          <button class="filter-btn" data-type="Run">Run</button>
+          <button class="filter-btn" data-type="Ride">Ride</button>
+        </div>
+      </div>
+      <div class="activity-grid" id="activityGrid">
+        <div class="loading-msg">Loading activities...</div>
+      </div>
+    </section>
+
+    <!-- Leaderboard Section -->
+    <section class="panel" id="section-leaderboard">
+      <div class="panel-header">
+        <h1 class="panel-title">Weekly Leaderboard</h1>
+        <span class="panel-subtitle" id="weekLabel"></span>
+      </div>
+      <div class="leaderboard-wrapper">
+        <div class="leaderboard-col">
+          <h2 class="lb-category"><span class="lb-icon">🏃</span> Running Miles</h2>
+          <ol class="lb-list" id="lbRunning"></ol>
+        </div>
+        <div class="leaderboard-col">
+          <h2 class="lb-category"><span class="lb-icon">🚴</span> Cycling Miles</h2>
+          <ol class="lb-list" id="lbCycling"></ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- Weather Section -->
+    <section class="panel" id="section-weather">
+      <div class="panel-header">
+        <h1 class="panel-title">Weather</h1>
+        <span class="panel-subtitle" id="weatherLocation"></span>
+      </div>
+      <div class="weather-main" id="weatherMain">
+        <div class="loading-msg">Loading weather...</div>
+      </div>
+      <div class="weather-forecast" id="weatherForecast"></div>
+    </section>
+
+    <!-- Notes Section -->
+    <section class="panel" id="section-notes">
+      <div class="panel-header">
+        <h1 class="panel-title">Notes</h1>
+        <div class="notes-actions">
+          <button class="btn-primary" id="btnSaveNotes">Save</button>
+          <span class="save-status" id="saveStatus"></span>
+        </div>
+      </div>
+      <textarea class="notes-textarea" id="notesTextarea" placeholder="Tap to add notes...&#10;&#10;Use this for groceries, reminders, house rules — anything!"></textarea>
+    </section>
+
+    <!-- Photos Section -->
+    <section class="panel" id="section-photos">
+      <div class="photo-slideshow" id="photoSlideshow">
+        <div class="photo-placeholder">
+          <p>No photos yet.</p>
+          <label class="btn-primary upload-label">
+            Upload Photos
+            <input type="file" accept="image/*" multiple id="photoUploadInput" style="display:none" />
+          </label>
+        </div>
+      </div>
+      <div class="photo-controls" id="photoControls" style="display:none">
+        <button class="photo-btn" id="photoPrev">‹</button>
+        <span class="photo-counter" id="photoCounter"></span>
+        <button class="photo-btn" id="photoNext">›</button>
+        <label class="btn-primary upload-label" style="margin-left:auto">
+          + Add Photos
+          <input type="file" accept="image/*" multiple id="photoUploadInput2" style="display:none" />
+        </label>
+      </div>
+    </section>
+  </main>
+
+  <!-- Setup Modal -->
+  <div class="modal-backdrop" id="setupModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Dashboard Setup</h2>
+        <button class="btn-icon modal-close" id="btnCloseModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <h3>Strava Athletes</h3>
+        <p>Each athlete must authorize the app once. Visit these links (on any browser on the Pi):</p>
+        <div id="authLinks"></div>
+        <hr />
+        <h3>Cycle Interval</h3>
+        <label>Auto-cycle every
+          <input type="number" id="cycleInterval" value="30" min="5" max="600" style="width:70px;margin:0 6px" />
+          seconds
+        </label>
+        <hr />
+        <h3>Activities to show</h3>
+        <label>Max activities
+          <input type="number" id="maxActivities" value="12" min="3" max="30" style="width:70px;margin:0 6px" />
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

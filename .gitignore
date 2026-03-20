@@ -1,0 +1,7 @@
+node_modules/
+.env
+tokens.json
+notes.txt
+public/photos/
+*.log
+.DS_Store
