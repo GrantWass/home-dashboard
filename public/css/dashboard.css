@@ -693,6 +693,54 @@ html, body {
   transition: width linear;
 }
 
+/* ===== QR WIDGET ===== */
+.qr-widget {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  z-index: 60;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.2s;
+  box-shadow: var(--shadow);
+}
+.qr-widget:hover { opacity: 1; }
+
+.qr-box {
+  width: 100px;
+  height: 100px;
+  background: #fff;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.qr-box canvas,
+.qr-box img {
+  width: 100px !important;
+  height: 100px !important;
+}
+
+.qr-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
 /* ===== RESPONSIVE TWEAKS ===== */
 @media (max-width: 900px) {
   .leaderboard-wrapper { grid-template-columns: 1fr; }

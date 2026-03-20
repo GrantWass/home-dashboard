@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#0d0d1a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Dashboard — Mobile</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d1a;
+      --surface: #161628;
+      --surface2: #1e1e38;
+      --border: #2a2a4a;
+      --accent: #fc4c02;
+      --accent2: #4fc3f7;
+      --accent3: #69f0ae;
+      --text: #f0f0ff;
+      --text-dim: #8888aa;
+      --text-dimmer: #4a4a6a;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --font: 'Inter', system-ui, sans-serif;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+
+    /* ── Header ── */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: calc(var(--safe-top) + 14px) 20px 0;
+    }
+
+    .header-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      padding-bottom: 4px;
+    }
+
+    /* ── Tab bar ── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-top: 12px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+      letter-spacing: 0.01em;
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* ── Panels ── */
+    .panel {
+      display: none;
+      padding: 20px 16px calc(var(--safe-bottom) + 20px);
+    }
+    .panel.active { display: block; }
+
+    /* ── Notes ── */
+    .notes-textarea {
+      width: 100%;
+      min-height: 55vh;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 1rem;
+      line-height: 1.65;
+      padding: 16px;
+      resize: vertical;
+      outline: none;
+      -webkit-appearance: none;
+      transition: border-color 0.2s;
+    }
+    .notes-textarea:focus { border-color: var(--accent2); }
+    .notes-textarea::placeholder { color: var(--text-dimmer); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 14px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .btn:active { transform: scale(0.97); opacity: 0.85; }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-success { background: #1a3a2a; color: var(--accent3); border: 1px solid var(--accent3); }
+
+    .btn-row { display: flex; gap: 10px; margin-top: 12px; }
+    .btn-row .btn { flex: 1; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: calc(var(--safe-bottom) + 24px);
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 10px 22px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      white-space: nowrap;
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      z-index: 100;
+      pointer-events: none;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+    .toast.success { color: var(--accent3); border-color: var(--accent3); }
+    .toast.error   { color: #ff6b6b; border-color: #ff6b6b; }
+
+    /* ── Photos ── */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(252, 76, 2, 0.05);
+    }
+
+    .upload-icon { font-size: 3rem; margin-bottom: 12px; }
+
+    .upload-zone p {
+      color: var(--text-dim);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .upload-zone strong { color: var(--text); }
+
+    #fileInput { display: none; }
+
+    .photo-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .photo-thumb {
+      aspect-ratio: 1;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      position: relative;
+      background: var(--surface);
+    }
+
+    .photo-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .photo-thumb .remove-btn {
+      position: absolute;
+      top: 4px; right: 4px;
+      background: rgba(0,0,0,0.65);
+      border: none;
+      color: #fff;
+      border-radius: 50%;
+      width: 24px; height: 24px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .upload-progress {
+      margin-top: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      display: none;
+    }
+
+    .upload-progress-bar {
+      height: 6px;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .upload-label-text {
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      text-align: center;
+    }
+
+    /* ── Section label ── */
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-dimmer);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+
+    /* ── Divider ── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 20px 0;
+    }
+
+    /* ── Existing photos list ── */
+    .existing-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .existing-count {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">🏠 Home Dashboard</div>
+  <div class="tabs">
+    <button class="tab active" data-tab="notes">📝 Notes</button>
+    <button class="tab" data-tab="photos">📸 Photos</button>
+  </div>
+</div>
+
+<!-- Notes Panel -->
+<div class="panel active" id="panel-notes">
+  <div class="section-label" style="margin-top:16px">Shared Notes</div>
+  <textarea class="notes-textarea" id="notesTextarea"
+    placeholder="Groceries, reminders, house rules..."></textarea>
+  <div class="btn-row">
+    <button class="btn btn-primary" id="btnSave">Save Notes</button>
+  </div>
+  <div style="height:8px"></div>
+  <button class="btn btn-secondary" id="btnReload">↻ Reload</button>
+</div>
+
+<!-- Photos Panel -->
+<div class="panel" id="panel-photos">
+  <div style="height:16px"></div>
+
+  <div class="section-label">Add New Photos</div>
+  <div class="upload-zone" id="uploadZone">
+    <div class="upload-icon">📷</div>
+    <p><strong>Tap to choose photos</strong><br />or use your camera</p>
+  </div>
+  <input type="file" id="fileInput" accept="image/*" multiple capture="environment" />
+
+  <div class="photo-preview-grid" id="previewGrid"></div>
+
+  <div class="upload-progress" id="uploadProgress">
+    <div class="upload-progress-bar" id="uploadProgressBar"></div>
+    <div class="upload-label-text" id="uploadLabel">Uploading...</div>
+  </div>
+
+  <div style="height:8px"></div>
+  <button class="btn btn-primary" id="btnUpload" style="display:none">Upload Selected Photos</button>
+
+  <hr class="divider" />
+
+  <div class="existing-header">
+    <div class="section-label" style="margin-bottom:0">On the Dashboard</div>
+    <span class="existing-count" id="existingCount"></span>
+  </div>
+  <div class="photo-preview-grid" id="existingGrid"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Tab switching ──
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(`panel-${tab.dataset.tab}`).classList.add('active');
+    });
+  });
+
+  // ── Toast ──
+  function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast ${type} show`;
+    setTimeout(() => { t.classList.remove('show'); }, 2800);
+  }
+
+  // ── Notes ──
+  const notesTextarea = document.getElementById('notesTextarea');
+
+  async function loadNotes() {
+    try {
+      const res = await fetch('/api/notes');
+      const data = await res.json();
+      notesTextarea.value = data.content || '';
+    } catch {
+      showToast('Could not load notes', 'error');
+    }
+  }
+
+  document.getElementById('btnSave').addEventListener('click', async () => {
+    try {
+      const res = await fetch('/api/notes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: notesTextarea.value }),
+      });
+      if (!res.ok) throw new Error();
+      showToast('✓ Notes saved!');
+    } catch {
+      showToast('Save failed', 'error');
+    }
+  });
+
+  document.getElementById('btnReload').addEventListener('click', async () => {
+    await loadNotes();
+    showToast('Notes reloaded');
+  });
+
+  loadNotes();
+
+  // ── Photos ──
+  let selectedFiles = [];
+
+  const uploadZone   = document.getElementById('uploadZone');
+  const fileInput    = document.getElementById('fileInput');
+  const previewGrid  = document.getElementById('previewGrid');
+  const existingGrid = document.getElementById('existingGrid');
+  const existingCount = document.getElementById('existingCount');
+  const btnUpload    = document.getElementById('btnUpload');
+  const progressEl   = document.getElementById('uploadProgress');
+  const progressBar  = document.getElementById('uploadProgressBar');
+  const progressLabel = document.getElementById('uploadLabel');
+
+  uploadZone.addEventListener('click', () => fileInput.click());
+
+  // Drag-over highlight (mostly useful on desktop)
+  uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    handleFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')));
+  });
+
+  fileInput.addEventListener('change', () => {
+    handleFiles(Array.from(fileInput.files));
+    fileInput.value = ''; // reset so same file can be re-selected
+  });
+
+  function handleFiles(files) {
+    selectedFiles = [...selectedFiles, ...files];
+    renderPreviews();
+  }
+
+  function renderPreviews() {
+    previewGrid.innerHTML = selectedFiles.map((f, i) => {
+      const url = URL.createObjectURL(f);
+      return `
+        <div class="photo-thumb">
+          <img src="${url}" alt="${escHtml(f.name)}" />
+          <button class="remove-btn" data-index="${i}">✕</button>
+        </div>
+      `;
+    }).join('');
+
+    previewGrid.querySelectorAll('.remove-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedFiles.splice(parseInt(btn.dataset.index), 1);
+        renderPreviews();
+      });
+    });
+
+    btnUpload.style.display = selectedFiles.length > 0 ? 'flex' : 'none';
+  }
+
+  btnUpload.addEventListener('click', async () => {
+    if (selectedFiles.length === 0) return;
+
+    const formData = new FormData();
+    selectedFiles.forEach(f => formData.append('photos', f));
+
+    progressEl.style.display = 'block';
+    progressBar.style.width = '10%';
+    progressLabel.textContent = `Uploading ${selectedFiles.length} photo${selectedFiles.length > 1 ? 's' : ''}...`;
+    btnUpload.disabled = true;
+
+    try {
+      // Fake progress animation while uploading
+      let fake = 10;
+      const fakeInterval = setInterval(() => {
+        fake = Math.min(fake + 8, 85);
+        progressBar.style.width = fake + '%';
+      }, 300);
+
+      const res = await fetch('/api/photos', { method: 'POST', body: formData });
+      clearInterval(fakeInterval);
+
+      if (!res.ok) throw new Error('Upload failed');
+
+      progressBar.style.width = '100%';
+      progressLabel.textContent = '✓ Uploaded!';
+
+      selectedFiles = [];
+      renderPreviews();
+      await loadExistingPhotos();
+      showToast(`✓ ${selectedFiles.length === 0 ? 'Photos' : 'Photo'} uploaded!`);
+
+      setTimeout(() => {
+        progressEl.style.display = 'none';
+        progressBar.style.width = '0%';
+      }, 1500);
+    } catch (err) {
+      progressLabel.textContent = '✗ Upload failed';
+      showToast('Upload failed', 'error');
+    } finally {
+      btnUpload.disabled = false;
+    }
+  });
+
+  async function loadExistingPhotos() {
+    try {
+      const res = await fetch('/api/photos');
+      const urls = await res.json();
+      existingCount.textContent = `${urls.length} photo${urls.length !== 1 ? 's' : ''}`;
+
+      if (urls.length === 0) {
+        existingGrid.innerHTML = '<p style="color:var(--text-dimmer);font-size:.85rem;grid-column:1/-1">No photos yet.</p>';
+        return;
+      }
+
+      existingGrid.innerHTML = urls.map(url => `
+        <div class="photo-thumb">
+          <img src="${escHtml(url)}" loading="lazy" alt="" />
+          <button class="remove-btn" data-url="${escHtml(url)}">✕</button>
+        </div>
+      `).join('');
+
+      existingGrid.querySelectorAll('.remove-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const filename = btn.dataset.url.split('/').pop();
+          try {
+            await fetch(`/api/photos/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+            await loadExistingPhotos();
+            showToast('Photo removed');
+          } catch {
+            showToast('Could not remove photo', 'error');
+          }
+        });
+      });
+    } catch {
+      existingGrid.innerHTML = '<p style="color:var(--text-dimmer);font-size:.85rem">Could not load photos.</p>';
+    }
+  }
+
+  loadExistingPhotos();
+
+  function escHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>

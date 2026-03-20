@@ -126,6 +126,12 @@
     </section>
   </main>
 
+  <!-- QR Code widget (bottom-right corner) -->
+  <div class="qr-widget" id="qrWidget" title="Scan to open mobile companion">
+    <div class="qr-box" id="qrBox"></div>
+    <div class="qr-label">Scan to edit<br>from your phone</div>
+  </div>
+
   <!-- Setup Modal -->
   <div class="modal-backdrop" id="setupModal" style="display:none">
     <div class="modal">
@@ -134,6 +140,10 @@
         <button class="btn-icon modal-close" id="btnCloseModal">✕</button>
       </div>
       <div class="modal-body">
+        <h3>Mobile Companion</h3>
+        <p>Roommates can add photos and edit notes from their phone by scanning the QR code in the bottom-right corner, or visiting:</p>
+        <div id="mobileUrl" style="margin:10px 0;padding:10px 14px;background:var(--surface2);border-radius:8px;font-family:monospace;font-size:.9rem;color:var(--accent2)"></div>
+        <hr />
         <h3>Strava Athletes</h3>
         <p>Each athlete must authorize the app once. Visit these links (on any browser on the Pi):</p>
         <div id="authLinks"></div>

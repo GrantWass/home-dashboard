@@ -578,11 +578,45 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// ───── QR Code ─────
+let mobileUrl = null;
+
+async function initQR() {
+  try {
+    const res = await fetch('/api/local-ip');
+    const { ip, port } = await res.json();
+    if (!ip) return;
+
+    mobileUrl = `http://${ip}:${port}/mobile`;
+
+    const qrBox = document.getElementById('qrBox');
+    if (!qrBox) return;
+
+    // Load QR as server-rendered SVG (works fully offline on the Pi)
+    const img = document.createElement('img');
+    img.src = '/api/qr.svg';
+    img.alt = 'Mobile QR code';
+    img.style.cssText = 'width:100px;height:100px;border-radius:4px';
+    qrBox.appendChild(img);
+
+    // Clicking the widget opens the mobile URL in a new tab
+    document.getElementById('qrWidget').addEventListener('click', () => {
+      window.open(mobileUrl, '_blank');
+    });
+  } catch (err) {
+    console.warn('[QR]', err.message);
+  }
+}
+
 // ───── Setup modal ─────
 document.getElementById('btnSetup').addEventListener('click', async () => {
   setupModal.style.display = 'flex';
   document.getElementById('cycleInterval').value = CONFIG.cycleInterval / 1000;
   document.getElementById('maxActivities').value = CONFIG.maxActivities;
+
+  // Show mobile URL
+  const mobileUrlEl = document.getElementById('mobileUrl');
+  if (mobileUrlEl) mobileUrlEl.textContent = mobileUrl || 'Starting server… try again in a moment.';
 
   // Load athlete token status
   try {
@@ -626,8 +660,37 @@ function escHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+// ───── Poll for photo + notes updates (so phone uploads appear on screen) ─────
+// Reload photos every 30s (lightweight — just a JSON list of filenames)
+setInterval(async () => {
+  try {
+    const res = await fetch('/api/photos');
+    const latest = await res.json();
+    // Only re-render if the list actually changed
+    if (JSON.stringify(latest) !== JSON.stringify(photos)) {
+      photos = latest;
+      if (SECTIONS[currentSection] === 'photos') renderPhotoSlideshow();
+    }
+  } catch { /* silent */ }
+}, 30 * 1000);
+
+// Reload notes every 60s so edits from phones appear
+setInterval(async () => {
+  if (SECTIONS[currentSection] !== 'notes') {
+    try {
+      const res = await fetch('/api/notes');
+      const data = await res.json();
+      // Only overwrite if the textarea isn't focused (don't stomp an in-progress edit)
+      if (document.activeElement !== notesTextarea) {
+        notesTextarea.value = data.content || '';
+      }
+    } catch { /* silent */ }
+  }
+}, 60 * 1000);
+
 // ───── Init ─────
 showSection(0);
 loadWeather();
 loadNotes();
 loadPhotos();
+initQR();
