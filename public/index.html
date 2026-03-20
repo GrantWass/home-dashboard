@@ -9,38 +9,38 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <!-- Navigation dots -->
+  <!-- Section indicator (display only — dots show which section is active) -->
   <nav class="section-nav" id="sectionNav">
-    <button class="nav-dot active" data-section="activities" title="Activities">
+    <div class="nav-dot active" data-section="activities">
       <span class="nav-icon">🏃</span>
       <span class="nav-label">Activities</span>
-    </button>
-    <button class="nav-dot" data-section="leaderboard" title="Leaderboard">
+    </div>
+    <div class="nav-dot" data-section="leaderboard">
       <span class="nav-icon">🏆</span>
       <span class="nav-label">Leaderboard</span>
-    </button>
-    <button class="nav-dot" data-section="weather" title="Weather">
+    </div>
+    <div class="nav-dot" data-section="weather">
       <span class="nav-icon">🌤</span>
       <span class="nav-label">Weather</span>
-    </button>
-    <button class="nav-dot" data-section="notes" title="Notes">
+    </div>
+    <div class="nav-dot" data-section="notes">
       <span class="nav-icon">📝</span>
       <span class="nav-label">Notes</span>
-    </button>
-    <button class="nav-dot" data-section="photos" title="Photos">
+    </div>
+    <div class="nav-dot" data-section="photos">
       <span class="nav-icon">📸</span>
       <span class="nav-label">Photos</span>
-    </button>
+    </div>
+
+    <!-- Setup button — only useful during initial config with a mouse -->
+    <button class="nav-setup-btn" id="btnSetup" title="Setup (use mouse during initial config)">⚙</button>
   </nav>
 
-  <!-- Top status bar -->
+  <!-- Top status bar — info display only -->
   <div class="status-bar" id="statusBar">
     <span class="status-clock" id="clock"></span>
     <span class="status-date" id="dateDisplay"></span>
     <span class="status-strava" id="stravaStatus">Strava: loading...</span>
-    <button class="btn-icon" id="btnRefreshStrava" title="Refresh Strava data">↻</button>
-    <button class="btn-icon" id="btnAutoplay" title="Toggle auto-cycle">▶</button>
-    <button class="btn-icon" id="btnSetup" title="Setup">⚙</button>
   </div>
 
   <!-- ==================== SECTIONS ==================== -->
@@ -50,11 +50,6 @@
     <section class="panel active" id="section-activities">
       <div class="panel-header">
         <h1 class="panel-title">Recent Activities</h1>
-        <div class="activity-filter" id="activityFilter">
-          <button class="filter-btn active" data-type="all">All</button>
-          <button class="filter-btn" data-type="Run">Run</button>
-          <button class="filter-btn" data-type="Ride">Ride</button>
-        </div>
       </div>
       <div class="activity-grid" id="activityGrid">
         <div class="loading-msg">Loading activities...</div>
@@ -91,16 +86,15 @@
       <div class="weather-forecast" id="weatherForecast"></div>
     </section>
 
-    <!-- Notes Section -->
+    <!-- Notes Section — read-only display, edit from phone -->
     <section class="panel" id="section-notes">
       <div class="panel-header">
         <h1 class="panel-title">Notes</h1>
-        <div class="notes-actions">
-          <button class="btn-primary" id="btnSaveNotes">Save</button>
-          <span class="save-status" id="saveStatus"></span>
-        </div>
+        <span class="panel-subtitle">Edit from your phone ↗</span>
       </div>
-      <textarea class="notes-textarea" id="notesTextarea" placeholder="Tap to add notes...&#10;&#10;Use this for groceries, reminders, house rules — anything!"></textarea>
+      <div class="notes-display" id="notesDisplay">
+        <span class="notes-empty">No notes yet — add some from your phone.</span>
+      </div>
     </section>
 
     <!-- Photos Section -->
@@ -108,31 +102,21 @@
       <div class="photo-slideshow" id="photoSlideshow">
         <div class="photo-placeholder">
           <p>No photos yet.</p>
-          <label class="btn-primary upload-label">
-            Upload Photos
-            <input type="file" accept="image/*" multiple id="photoUploadInput" style="display:none" />
-          </label>
+          <p class="photo-placeholder-sub">Upload from your phone using the QR code →</p>
         </div>
       </div>
-      <div class="photo-controls" id="photoControls" style="display:none">
-        <button class="photo-btn" id="photoPrev">‹</button>
-        <span class="photo-counter" id="photoCounter"></span>
-        <button class="photo-btn" id="photoNext">›</button>
-        <label class="btn-primary upload-label" style="margin-left:auto">
-          + Add Photos
-          <input type="file" accept="image/*" multiple id="photoUploadInput2" style="display:none" />
-        </label>
-      </div>
+      <!-- Minimal overlay counter, no buttons -->
+      <div class="photo-counter-overlay" id="photoCounter" style="display:none"></div>
     </section>
   </main>
 
-  <!-- QR Code widget (bottom-right corner) -->
-  <div class="qr-widget" id="qrWidget" title="Scan to open mobile companion">
+  <!-- QR Code widget — always visible, scan to edit from phone -->
+  <div class="qr-widget" id="qrWidget">
     <div class="qr-box" id="qrBox"></div>
-    <div class="qr-label">Scan to edit<br>from your phone</div>
+    <div class="qr-label">Edit from phone</div>
   </div>
 
-  <!-- Setup Modal -->
+  <!-- Setup Modal — accessible via ⚙ during initial mouse-based config -->
   <div class="modal-backdrop" id="setupModal" style="display:none">
     <div class="modal">
       <div class="modal-header">
@@ -141,11 +125,11 @@
       </div>
       <div class="modal-body">
         <h3>Mobile Companion</h3>
-        <p>Roommates can add photos and edit notes from their phone by scanning the QR code in the bottom-right corner, or visiting:</p>
+        <p>Roommates can add photos and edit notes from their phone by scanning the QR code, or visiting:</p>
         <div id="mobileUrl" style="margin:10px 0;padding:10px 14px;background:var(--surface2);border-radius:8px;font-family:monospace;font-size:.9rem;color:var(--accent2)"></div>
         <hr />
         <h3>Strava Athletes</h3>
-        <p>Each athlete must authorize the app once. Visit these links (on any browser on the Pi):</p>
+        <p>Each athlete must authorize the app once. Visit these links in any browser on the Pi:</p>
         <div id="authLinks"></div>
         <hr />
         <h3>Cycle Interval</h3>

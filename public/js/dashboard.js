@@ -1,7 +1,7 @@
 /* =====================================================================
-   Home Dashboard — Main JS
-   Handles: section navigation, Strava data, weather, notes, photos,
-            auto-cycling, clock, leaderboard
+   Home Dashboard — Kiosk JS
+   Designed for monitor display without mouse/keyboard during normal use.
+   Mouse/keyboard still work for initial setup via the ⚙ button.
    ===================================================================== */
 
 // ───── Config (persisted in localStorage) ─────
@@ -16,34 +16,41 @@ const CONFIG = {
 const SECTIONS = ['activities', 'leaderboard', 'weather', 'notes', 'photos'];
 let currentSection = 0;
 let autoplayTimer = null;
-let autoplayEnabled = false;
 let autoplayStart = null;
-let autoplayRafId = null;
 
 let stravaData = null;
-let currentActivityFilter = 'all';
 let photos = [];
 let currentPhoto = 0;
 let photoAutoTimer = null;
 
 // ───── DOM refs ─────
-const clock       = document.getElementById('clock');
-const dateDisplay = document.getElementById('dateDisplay');
-const stravaStatus = document.getElementById('stravaStatus');
-const activityGrid = document.getElementById('activityGrid');
-const lbRunning   = document.getElementById('lbRunning');
-const lbCycling   = document.getElementById('lbCycling');
-const weekLabel   = document.getElementById('weekLabel');
-const weatherMain = document.getElementById('weatherMain');
+const clock          = document.getElementById('clock');
+const dateDisplay    = document.getElementById('dateDisplay');
+const stravaStatus   = document.getElementById('stravaStatus');
+const activityGrid   = document.getElementById('activityGrid');
+const lbRunning      = document.getElementById('lbRunning');
+const lbCycling      = document.getElementById('lbCycling');
+const weekLabel      = document.getElementById('weekLabel');
+const weatherMain    = document.getElementById('weatherMain');
 const weatherForecast = document.getElementById('weatherForecast');
 const weatherLocation = document.getElementById('weatherLocation');
-const notesTextarea = document.getElementById('notesTextarea');
-const saveStatus  = document.getElementById('saveStatus');
-const setupModal  = document.getElementById('setupModal');
-const authLinks   = document.getElementById('authLinks');
-const slideshow   = document.getElementById('photoSlideshow');
-const photoControls = document.getElementById('photoControls');
-const photoCounter  = document.getElementById('photoCounter');
+const notesDisplay   = document.getElementById('notesDisplay');
+const setupModal     = document.getElementById('setupModal');
+const authLinks      = document.getElementById('authLinks');
+const slideshow      = document.getElementById('photoSlideshow');
+const photoCounter   = document.getElementById('photoCounter');
+
+// ───── Cursor auto-hide ─────
+// Cursor shows when mouse moves, hides after 3s idle.
+// This lets the mouse work for setup without showing it during normal display.
+let cursorHideTimer = null;
+document.addEventListener('mousemove', () => {
+  document.body.classList.remove('cursor-hidden');
+  clearTimeout(cursorHideTimer);
+  cursorHideTimer = setTimeout(() => document.body.classList.add('cursor-hidden'), 3000);
+});
+// Start hidden
+document.body.classList.add('cursor-hidden');
 
 // ───── Clock ─────
 function updateClock() {
@@ -81,20 +88,14 @@ function showSection(nameOrIndex) {
     b.classList.toggle('active', i === idx);
   });
 
-  // Lazy-load data when switching to a section
-  if (SECTIONS[idx] === 'weather') loadWeather();
-  if (SECTIONS[idx] === 'notes') loadNotes();
-  if (SECTIONS[idx] === 'photos') loadPhotos();
+  const name = SECTIONS[idx];
+  if (name === 'weather') loadWeather();
+  if (name === 'notes')   loadNotes();
+  if (name === 'photos')  { loadPhotos(); startPhotoAuto(); }
+  else stopPhotoAuto();
 }
 
-document.querySelectorAll('.nav-dot').forEach((btn, i) => {
-  btn.addEventListener('click', () => {
-    stopAutoplay();
-    showSection(i);
-  });
-});
-
-// ───── Autoplay ─────
+// ───── Autoplay — always on, starts immediately ─────
 const progressContainer = document.createElement('div');
 progressContainer.className = 'autoplay-progress';
 const progressBar = document.createElement('div');
@@ -102,34 +103,10 @@ progressBar.className = 'autoplay-progress-bar';
 progressContainer.appendChild(progressBar);
 document.body.appendChild(progressContainer);
 
-const btnAutoplay = document.getElementById('btnAutoplay');
-
 function startAutoplay() {
-  autoplayEnabled = true;
-  btnAutoplay.textContent = '⏸';
-  btnAutoplay.title = 'Pause auto-cycle';
-  scheduleNext();
-}
-
-function stopAutoplay() {
-  autoplayEnabled = false;
   clearTimeout(autoplayTimer);
-  cancelAnimationFrame(autoplayRafId);
-  progressBar.style.transition = 'none';
-  progressBar.style.width = '0%';
-  btnAutoplay.textContent = '▶';
-  btnAutoplay.title = 'Start auto-cycle';
-}
-
-function scheduleNext() {
-  if (!autoplayEnabled) return;
-  clearTimeout(autoplayTimer);
-  cancelAnimationFrame(autoplayRafId);
-
   const duration = CONFIG.cycleInterval;
-  autoplayStart = performance.now();
 
-  // Animate progress bar
   progressBar.style.transition = 'none';
   progressBar.style.width = '0%';
   requestAnimationFrame(() => {
@@ -138,16 +115,10 @@ function scheduleNext() {
   });
 
   autoplayTimer = setTimeout(() => {
-    const next = (currentSection + 1) % SECTIONS.length;
-    showSection(next);
-    scheduleNext();
+    showSection((currentSection + 1) % SECTIONS.length);
+    startAutoplay();
   }, duration);
 }
-
-btnAutoplay.addEventListener('click', () => {
-  if (autoplayEnabled) stopAutoplay();
-  else startAutoplay();
-});
 
 // ───── Strava data ─────
 async function loadStravaData() {
@@ -156,7 +127,6 @@ async function loadStravaData() {
     stravaData = await res.json();
     renderActivities();
     renderLeaderboard();
-
     const updated = stravaData.lastUpdated
       ? `Updated ${new Date(stravaData.lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
       : 'No data yet';
@@ -167,17 +137,10 @@ async function loadStravaData() {
   }
 }
 
-// Refresh every 15 minutes on the client too (server also refreshes)
 setInterval(loadStravaData, 15 * 60 * 1000);
 loadStravaData();
 
-document.getElementById('btnRefreshStrava').addEventListener('click', async () => {
-  stravaStatus.textContent = 'Strava: refreshing...';
-  await fetch('/api/strava/refresh', { method: 'POST' });
-  await loadStravaData();
-});
-
-// ───── Activities rendering ─────
+// ───── Activities ─────
 function activityTypeClass(type) {
   if (!type) return 'other';
   const t = type.toLowerCase();
@@ -218,15 +181,13 @@ function formatDuration(sec) {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m ${s}s`;
+  return h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
 }
 
 function formatDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
-  const now = new Date();
-  const diffDays = Math.floor((now - d) / 86400000);
+  const diffDays = Math.floor((Date.now() - d) / 86400000);
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays}d ago`;
@@ -234,43 +195,32 @@ function formatDate(iso) {
 }
 
 function renderActivities() {
-  if (!stravaData || !stravaData.activities) {
-    activityGrid.innerHTML = '<div class="loading-msg">No activity data available.<br>Complete Strava setup in ⚙ Settings.</div>';
+  if (!stravaData?.activities) {
+    activityGrid.innerHTML = '<div class="loading-msg">No activity data.<br>Complete Strava setup via ⚙</div>';
     return;
   }
 
-  let acts = stravaData.activities;
-  if (currentActivityFilter !== 'all') {
-    acts = acts.filter(a => {
-      const t = (a.type || '').toLowerCase();
-      if (currentActivityFilter === 'Run') return t.includes('run');
-      if (currentActivityFilter === 'Ride') return t.includes('ride') || t.includes('cycl') || t.includes('bike');
-      return true;
-    });
-  }
-
-  acts = acts.slice(0, CONFIG.maxActivities);
+  const acts = stravaData.activities.slice(0, CONFIG.maxActivities);
 
   if (acts.length === 0) {
-    activityGrid.innerHTML = '<div class="loading-msg">No activities match this filter.</div>';
+    activityGrid.innerHTML = '<div class="loading-msg">No activities yet.</div>';
     return;
   }
 
-  const isRun = type => (type || '').toLowerCase().includes('run');
+  const isRun = t => (t || '').toLowerCase().includes('run');
 
   activityGrid.innerHTML = acts.map(act => {
     const cls = activityTypeClass(act.type);
-    const emoji = activityEmoji(act.type);
     const miles = metersToMiles(act.distance);
-    const pace = isRun(act.type) ? formatPace(act.distance, act.movingTime) : null;
+    const pace  = isRun(act.type) ? formatPace(act.distance, act.movingTime) : null;
     const speed = !isRun(act.type) ? formatSpeed(act.averageSpeed) : null;
-    const elev = act.elevationGain ? `${Math.round(act.elevationGain * 3.28084)} ft` : '—';
+    const elev  = act.elevationGain ? `${Math.round(act.elevationGain * 3.28084)} ft` : '—';
 
     return `
       <div class="activity-card ${cls}">
         ${act.kudosCount > 0 ? `<span class="act-kudos">❤ ${act.kudosCount}</span>` : ''}
         <div class="act-header">
-          <div class="act-type-badge">${emoji}</div>
+          <div class="act-type-badge">${activityEmoji(act.type)}</div>
           <div class="act-title-block">
             <div class="act-name" title="${escHtml(act.name)}">${escHtml(act.name)}</div>
             <div class="act-athlete">${escHtml(act.athleteName)}</div>
@@ -288,7 +238,7 @@ function renderActivities() {
           </div>
           <div class="act-stat">
             <div class="act-stat-label">${pace ? 'Pace' : 'Speed'}</div>
-            <div class="act-stat-value">${pace ? pace + '<small style="font-size:.7em;font-weight:400">/mi</small>' : speed}</div>
+            <div class="act-stat-value">${pace ? pace + '<small style="font-size:.7em;font-weight:400"> /mi</small>' : speed}</div>
           </div>
           <div class="act-stat">
             <div class="act-stat-label">Elevation</div>
@@ -309,48 +259,38 @@ function renderActivities() {
   }).join('');
 }
 
-// Activity filter buttons
-document.querySelectorAll('.filter-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentActivityFilter = btn.dataset.type;
-    renderActivities();
-  });
-});
-
-// ───── Leaderboard rendering ─────
+// ───── Leaderboard ─────
 function renderLeaderboard() {
-  if (!stravaData || !stravaData.leaderboard) {
-    lbRunning.innerHTML = '<li style="color:var(--text-dim);padding:12px">No data yet.</li>';
-    lbCycling.innerHTML = '<li style="color:var(--text-dim);padding:12px">No data yet.</li>';
+  if (!stravaData?.leaderboard) {
+    lbRunning.innerHTML = '<li style="color:var(--text-dim);padding:14px">No data yet.</li>';
+    lbCycling.innerHTML = '<li style="color:var(--text-dim);padding:14px">No data yet.</li>';
     return;
   }
 
   const board = stravaData.leaderboard;
   const rankColors = ['gold', 'silver', 'bronze'];
-
-  const sortedRun = [...board].sort((a, b) => b.runMiles - a.runMiles);
+  const sortedRun  = [...board].sort((a, b) => b.runMiles - a.runMiles);
   const sortedRide = [...board].sort((a, b) => b.cyclingMiles - a.cyclingMiles);
-  const maxRun = sortedRun[0]?.runMiles || 1;
+  const maxRun  = sortedRun[0]?.runMiles || 1;
   const maxRide = sortedRide[0]?.cyclingMiles || 1;
 
-  function renderList(sorted, key, unit) {
+  function renderList(sorted, key) {
     return sorted.map((item, i) => {
       const val = item[key];
       const pct = Math.round((val / (key === 'runMiles' ? maxRun : maxRide)) * 100);
       const countKey = key === 'runMiles' ? 'runCount' : 'rideCount';
       const count = item[countKey];
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1;
       return `
         <li class="lb-item">
-          <span class="lb-rank ${rankColors[i] || ''}">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</span>
+          <span class="lb-rank ${rankColors[i] || ''}">${medal}</span>
           <div>
             <div class="lb-name">${escHtml(item.name)}</div>
             <div class="lb-subtext">${count} activit${count === 1 ? 'y' : 'ies'}</div>
           </div>
           <div>
             <span class="lb-value">${val.toFixed(1)}</span>
-            <span class="lb-unit"> ${unit}</span>
+            <span class="lb-unit"> mi</span>
           </div>
           <div class="lb-bar" style="width:${pct}%"></div>
         </li>
@@ -358,13 +298,11 @@ function renderLeaderboard() {
     }).join('');
   }
 
-  lbRunning.innerHTML = renderList(sortedRun, 'runMiles', 'mi');
-  lbCycling.innerHTML = renderList(sortedRide, 'cyclingMiles', 'mi');
+  lbRunning.innerHTML = renderList(sortedRun, 'runMiles');
+  lbCycling.innerHTML = renderList(sortedRide, 'cyclingMiles');
 }
 
 // ───── Weather ─────
-const WI_BASE = 'https://openweathermap.org/img/wn/';
-
 async function loadWeather() {
   try {
     const res = await fetch('/api/weather');
@@ -383,14 +321,14 @@ function windDirLabel(deg) {
 
 function renderWeather(w) {
   weatherLocation.textContent = `${w.city}, ${w.country}`;
-
+  const WI = 'https://openweathermap.org/img/wn/';
   const sunrise = new Date(w.sunrise * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const sunset  = new Date(w.sunset  * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   weatherMain.innerHTML = `
     <div class="weather-current">
-      <img class="weather-icon-large" src="${WI_BASE}${w.icon}@4x.png" alt="${escHtml(w.description)}" />
-      <div class="weather-temp-block">
+      <img class="weather-icon-large" src="${WI}${w.icon}@4x.png" alt="${escHtml(w.description)}" />
+      <div>
         <div class="weather-temp">${w.temp}${w.unit}</div>
         <div class="weather-desc">${escHtml(w.description)}</div>
         <div class="weather-feels">Feels like ${w.feelsLike}${w.unit} · ${w.tempMin}° / ${w.tempMax}°</div>
@@ -421,60 +359,54 @@ function renderWeather(w) {
     return `
       <div class="forecast-card">
         <div class="forecast-time">${t}</div>
-        <img class="forecast-icon" src="${WI_BASE}${f.icon}@2x.png" alt="${escHtml(f.description)}" />
+        <img class="forecast-icon" src="${WI}${f.icon}@2x.png" alt="${escHtml(f.description)}" />
         <div class="forecast-temp">${f.temp}°</div>
       </div>
     `;
   }).join('');
 }
 
-// Refresh weather every 10 min
 setInterval(() => {
   if (SECTIONS[currentSection] === 'weather') loadWeather();
 }, 10 * 60 * 1000);
 
-// ───── Notes ─────
+// ───── Notes — display only ─────
 async function loadNotes() {
   try {
     const res = await fetch('/api/notes');
     const data = await res.json();
-    notesTextarea.value = data.content || '';
+    renderNotes(data.content || '');
   } catch (err) {
     console.error('[Notes]', err);
   }
 }
 
-let notesDebounce = null;
-notesTextarea.addEventListener('input', () => {
-  saveStatus.textContent = '';
-  clearTimeout(notesDebounce);
-  notesDebounce = setTimeout(saveNotes, 2000);
-});
-
-document.getElementById('btnSaveNotes').addEventListener('click', saveNotes);
-
-async function saveNotes() {
-  clearTimeout(notesDebounce);
-  try {
-    await fetch('/api/notes', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: notesTextarea.value }),
-    });
-    saveStatus.textContent = '✓ Saved';
-    setTimeout(() => { saveStatus.textContent = ''; }, 2000);
-  } catch (err) {
-    saveStatus.textContent = '✗ Error';
-    console.error('[Notes save]', err);
+function renderNotes(content) {
+  if (!content.trim()) {
+    notesDisplay.innerHTML = '<span class="notes-empty">No notes yet — add some from your phone.</span>';
+  } else {
+    notesDisplay.textContent = content;
   }
 }
+
+// Poll notes every 60s so phone edits appear on screen
+setInterval(async () => {
+  try {
+    const res = await fetch('/api/notes');
+    const data = await res.json();
+    renderNotes(data.content || '');
+  } catch { /* silent */ }
+}, 60 * 1000);
 
 // ───── Photos ─────
 async function loadPhotos() {
   try {
     const res = await fetch('/api/photos');
-    photos = await res.json();
-    renderPhotoSlideshow();
+    const latest = await res.json();
+    if (JSON.stringify(latest) !== JSON.stringify(photos)) {
+      photos = latest;
+      renderPhotoSlideshow();
+    }
   } catch (err) {
     console.error('[Photos]', err);
   }
@@ -485,26 +417,21 @@ function renderPhotoSlideshow() {
     slideshow.innerHTML = `
       <div class="photo-placeholder">
         <p>No photos yet.</p>
-        <label class="btn-primary upload-label">
-          Upload Photos
-          <input type="file" accept="image/*" multiple id="photoUploadInput" style="display:none" />
-        </label>
+        <p class="photo-placeholder-sub">Upload from your phone using the QR code →</p>
       </div>
     `;
-    document.getElementById('photoUploadInput').addEventListener('change', handlePhotoUpload);
-    photoControls.style.display = 'none';
+    if (photoCounter) photoCounter.style.display = 'none';
     return;
   }
 
-  // Create all img elements
   slideshow.innerHTML = photos.map((url, i) => `
-    <img src="${escHtml(url)}" class="${i === currentPhoto ? 'visible' : ''}" alt="Photo ${i+1}" loading="lazy" />
+    <img src="${escHtml(url)}" class="${i === currentPhoto ? 'visible' : ''}" alt="Photo ${i + 1}" loading="lazy" />
   `).join('');
-  photoControls.style.display = 'flex';
-  updatePhotoCounter();
 
-  // Bind upload
-  document.getElementById('photoUploadInput2')?.addEventListener('change', handlePhotoUpload);
+  if (photoCounter) {
+    photoCounter.style.display = 'block';
+    updatePhotoCounter();
+  }
 }
 
 function showPhoto(idx) {
@@ -516,67 +443,34 @@ function showPhoto(idx) {
 }
 
 function updatePhotoCounter() {
-  if (photoCounter) photoCounter.textContent = `${currentPhoto + 1} / ${photos.length}`;
+  if (photoCounter && photos.length > 0) {
+    photoCounter.textContent = `${currentPhoto + 1} / ${photos.length}`;
+  }
 }
 
-document.getElementById('photoPrev').addEventListener('click', () => showPhoto(currentPhoto - 1));
-document.getElementById('photoNext').addEventListener('click', () => showPhoto(currentPhoto + 1));
-
-// Auto-advance photos every 8 seconds when in photos section
 function startPhotoAuto() {
   stopPhotoAuto();
   if (photos.length <= 1) return;
   photoAutoTimer = setInterval(() => showPhoto(currentPhoto + 1), 8000);
 }
+
 function stopPhotoAuto() {
   clearInterval(photoAutoTimer);
 }
 
-// Override showSection to manage photo auto-advance
-const origShowSection = showSection;
-
-async function handlePhotoUpload(e) {
-  const files = e.target.files;
-  if (!files || files.length === 0) return;
-
-  const formData = new FormData();
-  for (const f of files) formData.append('photos', f);
-
+// Poll for new photos every 30s
+setInterval(async () => {
   try {
-    await fetch('/api/photos', { method: 'POST', body: formData });
     const res = await fetch('/api/photos');
-    photos = await res.json();
-    currentPhoto = Math.max(0, photos.length - files.length);
-    renderPhotoSlideshow();
-  } catch (err) {
-    console.error('[Upload]', err);
-  }
-}
-
-// ───── Keyboard navigation ─────
-document.addEventListener('keydown', e => {
-  if (e.target === notesTextarea) return; // don't hijack text input
-  switch (e.key) {
-    case 'ArrowRight':
-    case 'ArrowDown':
-      stopAutoplay();
-      showSection((currentSection + 1) % SECTIONS.length);
-      break;
-    case 'ArrowLeft':
-    case 'ArrowUp':
-      stopAutoplay();
-      showSection((currentSection - 1 + SECTIONS.length) % SECTIONS.length);
-      break;
-    case ' ':
-      e.preventDefault();
-      if (autoplayEnabled) stopAutoplay(); else startAutoplay();
-      break;
-    case 'r':
-    case 'R':
-      document.getElementById('btnRefreshStrava').click();
-      break;
-  }
-});
+    const latest = await res.json();
+    if (JSON.stringify(latest) !== JSON.stringify(photos)) {
+      const wasEmpty = photos.length === 0;
+      photos = latest;
+      renderPhotoSlideshow();
+      if (wasEmpty && SECTIONS[currentSection] === 'photos') startPhotoAuto();
+    }
+  } catch { /* silent */ }
+}, 30 * 1000);
 
 // ───── QR Code ─────
 let mobileUrl = null;
@@ -592,33 +486,25 @@ async function initQR() {
     const qrBox = document.getElementById('qrBox');
     if (!qrBox) return;
 
-    // Load QR as server-rendered SVG (works fully offline on the Pi)
     const img = document.createElement('img');
     img.src = '/api/qr.svg';
-    img.alt = 'Mobile QR code';
-    img.style.cssText = 'width:100px;height:100px;border-radius:4px';
+    img.alt = 'Scan to edit from phone';
+    img.style.cssText = 'width:110px;height:110px;border-radius:4px';
     qrBox.appendChild(img);
-
-    // Clicking the widget opens the mobile URL in a new tab
-    document.getElementById('qrWidget').addEventListener('click', () => {
-      window.open(mobileUrl, '_blank');
-    });
   } catch (err) {
     console.warn('[QR]', err.message);
   }
 }
 
-// ───── Setup modal ─────
+// ───── Setup modal (mouse-accessible for initial config) ─────
 document.getElementById('btnSetup').addEventListener('click', async () => {
   setupModal.style.display = 'flex';
   document.getElementById('cycleInterval').value = CONFIG.cycleInterval / 1000;
   document.getElementById('maxActivities').value = CONFIG.maxActivities;
 
-  // Show mobile URL
   const mobileUrlEl = document.getElementById('mobileUrl');
-  if (mobileUrlEl) mobileUrlEl.textContent = mobileUrl || 'Starting server… try again in a moment.';
+  if (mobileUrlEl) mobileUrlEl.textContent = mobileUrl || 'Loading…';
 
-  // Load athlete token status
   try {
     const res = await fetch('/api/strava/athletes');
     const athletes = await res.json();
@@ -642,54 +528,26 @@ document.getElementById('btnCloseModal').addEventListener('click', () => {
   CONFIG.maxActivities = parseInt(document.getElementById('maxActivities').value, 10);
   renderActivities();
   setupModal.style.display = 'none';
+  // Restart autoplay timer with updated interval
+  startAutoplay();
 });
 
 setupModal.addEventListener('click', e => {
-  if (e.target === setupModal) {
-    document.getElementById('btnCloseModal').click();
-  }
+  if (e.target === setupModal) document.getElementById('btnCloseModal').click();
 });
 
 // ───── Utils ─────
 function escHtml(str) {
-  if (!str) return '';
-  return String(str)
+  return String(str || '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
 
-// ───── Poll for photo + notes updates (so phone uploads appear on screen) ─────
-// Reload photos every 30s (lightweight — just a JSON list of filenames)
-setInterval(async () => {
-  try {
-    const res = await fetch('/api/photos');
-    const latest = await res.json();
-    // Only re-render if the list actually changed
-    if (JSON.stringify(latest) !== JSON.stringify(photos)) {
-      photos = latest;
-      if (SECTIONS[currentSection] === 'photos') renderPhotoSlideshow();
-    }
-  } catch { /* silent */ }
-}, 30 * 1000);
-
-// Reload notes every 60s so edits from phones appear
-setInterval(async () => {
-  if (SECTIONS[currentSection] !== 'notes') {
-    try {
-      const res = await fetch('/api/notes');
-      const data = await res.json();
-      // Only overwrite if the textarea isn't focused (don't stomp an in-progress edit)
-      if (document.activeElement !== notesTextarea) {
-        notesTextarea.value = data.content || '';
-      }
-    } catch { /* silent */ }
-  }
-}, 60 * 1000);
-
 // ───── Init ─────
 showSection(0);
+startAutoplay();   // always on from the start
 loadWeather();
 loadNotes();
 loadPhotos();
