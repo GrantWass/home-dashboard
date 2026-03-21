@@ -126,8 +126,10 @@ function buildLeaderboard(allActivities) {
       name: a.name,
       runMiles: 0,
       cyclingMiles: 0,
+      swimYards: 0,
       runCount: 0,
       rideCount: 0,
+      swimCount: 0,
     };
   });
 
@@ -136,12 +138,16 @@ function buildLeaderboard(allActivities) {
     const entry = board[act.athleteId];
     if (!entry) return;
     const miles = act.distance / 1609.34;
+    const yards = act.distance * 1.09361;
     if (act.type === 'Run' || act.type === 'TrailRun') {
       entry.runMiles += miles;
       entry.runCount++;
     } else if (['Ride','VirtualRide','MountainBikeRide','GravelRide'].includes(act.type)) {
       entry.cyclingMiles += miles;
       entry.rideCount++;
+    } else if (act.type === 'Swim' || act.type === 'OpenWaterSwim') {
+      entry.swimYards += yards;
+      entry.swimCount++;
     }
   });
 
@@ -149,6 +155,7 @@ function buildLeaderboard(allActivities) {
     ...e,
     runMiles: Math.round(e.runMiles * 10) / 10,
     cyclingMiles: Math.round(e.cyclingMiles * 10) / 10,
+    swimYards: Math.round(e.swimYards),
   }));
 }
 

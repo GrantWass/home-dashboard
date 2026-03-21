@@ -400,7 +400,7 @@ body.cursor-hidden * { cursor: none !important; }
 
 .leaderboard-compact {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
 }
 

@@ -272,6 +272,25 @@ function renderLeaderboard() {
     return rows;
   }
 
+  const sortedSwim = [...board].sort((a, b) => b.swimYards - a.swimYards);
+  const maxSwim = sortedSwim[0]?.swimYards || 1;
+
+  function swimColHtml(sorted) {
+    return sorted.map((item, i) => {
+      const val = item.swimYards;
+      const pct = Math.round((val / maxSwim) * 100);
+      const display = val >= 1000 ? (val / 1000).toFixed(1) + 'k' : String(val);
+      return `
+        <div class="lb-compact-row">
+          <span class="lb-compact-rank" style="color:${rankColors[i]}">${i + 1}</span>
+          <span class="lb-compact-name">${escHtml(item.name)}</span>
+          <span class="lb-compact-val">${display}</span><span class="lb-compact-unit">yd</span>
+        </div>
+        <div class="lb-bar-track"><div class="lb-bar-fill" style="width:${pct}%;background:#6ab4d4"></div></div>
+      `;
+    }).join('');
+  }
+
   leaderboardCompact.innerHTML = `
     <div class="lb-compact-col">
       <div class="lb-compact-title">🏃 Running</div>
@@ -280,6 +299,10 @@ function renderLeaderboard() {
     <div class="lb-compact-col">
       <div class="lb-compact-title">🚴 Cycling</div>
       <div class="lb-compact-rows">${colHtml(sortedRide, 'cyclingMiles', maxRide, 'var(--ride-color)')}</div>
+    </div>
+    <div class="lb-compact-col">
+      <div class="lb-compact-title">🏊 Swimming</div>
+      <div class="lb-compact-rows">${swimColHtml(sortedSwim)}</div>
     </div>
   `;
 }
