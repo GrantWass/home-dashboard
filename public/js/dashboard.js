@@ -4,20 +4,18 @@
    ===================================================================== */
 
 // ───── DOM refs ─────
-const clock             = document.getElementById('clock');
-const dateDisplay       = document.getElementById('dateDisplay');
-const stravaStatus      = document.getElementById('stravaStatus');
-const statusWeather     = document.getElementById('statusWeather');
-const activityGrid      = document.getElementById('activityGrid');
+const clock              = document.getElementById('clock');
+const dateDisplay        = document.getElementById('dateDisplay');
+const stravaStatus       = document.getElementById('stravaStatus');
+const activityGrid       = document.getElementById('activityGrid');
 const leaderboardCompact = document.getElementById('leaderboardCompact');
-const weekLabel         = document.getElementById('weekLabel');
-const weatherPanel      = document.getElementById('weatherPanel');
-const notesText         = document.getElementById('notesText');
-const notesRibbon       = document.getElementById('notesRibbon');
-const setupModal        = document.getElementById('setupModal');
-const authLinks         = document.getElementById('authLinks');
-const slideshow         = document.getElementById('photoSlideshow');
-const photoCounter      = document.getElementById('photoCounter');
+const weatherBar         = document.getElementById('weatherBar');
+const notesText          = document.getElementById('notesText');
+const notesRibbon        = document.getElementById('notesRibbon');
+const setupModal         = document.getElementById('setupModal');
+const authLinks          = document.getElementById('authLinks');
+const slideshow          = document.getElementById('photoSlideshow');
+const photoCounter       = document.getElementById('photoCounter');
 
 // ───── State ─────
 let stravaData = null;
@@ -43,20 +41,6 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// ───── Week label ─────
-function setWeekLabel() {
-  const now = new Date();
-  const day = now.getDay();
-  const diffToMon = (day === 0 ? -6 : 1) - day;
-  const mon = new Date(now);
-  mon.setDate(now.getDate() + diffToMon);
-  const sun = new Date(mon);
-  sun.setDate(mon.getDate() + 6);
-  const fmt = d => d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  if (weekLabel) weekLabel.textContent = `${fmt(mon)} – ${fmt(sun)}`;
-}
-setWeekLabel();
-
 // ───── Strava ─────
 async function loadStravaData() {
   try {
@@ -75,6 +59,50 @@ async function loadStravaData() {
 }
 setInterval(loadStravaData, 15 * 60 * 1000);
 loadStravaData();
+
+// ───── Route map helpers ─────
+function decodePolyline(encoded) {
+  const pts = [];
+  let i = 0, lat = 0, lng = 0;
+  while (i < encoded.length) {
+    let shift = 0, result = 0, b;
+    do { b = encoded.charCodeAt(i++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+    shift = 0; result = 0;
+    do { b = encoded.charCodeAt(i++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += result & 1 ? ~(result >> 1) : result >> 1;
+    pts.push([lat / 1e5, lng / 1e5]);
+  }
+  return pts;
+}
+
+function routeMapSvg(encoded, color) {
+  if (!encoded) return '';
+  const pts = decodePolyline(encoded);
+  if (pts.length < 2) return '';
+
+  const lats = pts.map(p => p[0]);
+  const lngs = pts.map(p => p[1]);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+  const latR = maxLat - minLat || 0.0001;
+  const lngR = maxLng - minLng || 0.0001;
+
+  const pad = 10, size = 100, inner = size - pad * 2;
+  const scale = Math.min(inner / lngR, inner / latR);
+  const sw = lngR * scale, sh = latR * scale;
+  const ox = pad + (inner - sw) / 2, oy = pad + (inner - sh) / 2;
+
+  const d = pts.map(([lat, lng], i) => {
+    const x = (ox + ((lng - minLng) / lngR) * sw).toFixed(1);
+    const y = (oy + ((maxLat - lat) / latR) * sh).toFixed(1);
+    return `${i === 0 ? 'M' : 'L'}${x},${y}`;
+  }).join('');
+
+  return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+    <path d="${d}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
 
 // ───── Activity helpers ─────
 function actTypeClass(type) {
@@ -144,6 +172,7 @@ function renderActivities() {
   }
 
   const isRun = t => (t || '').toLowerCase().includes('run');
+  const mapColors = { run: '#fc4c02', ride: '#4a9ab8', other: '#7db87d' };
 
   const cols = athletes.map(athlete => {
     const acts = byAthlete[athlete.id] || [];
@@ -155,9 +184,13 @@ function renderActivities() {
       const speed = !isRun(act.type) ? formatSpeed(act.averageSpeed) : null;
       const elev  = act.elevationGain ? `${Math.round(act.elevationGain * 3.281)} ft` : '—';
       const hr    = act.averageHeartrate ? `${Math.round(act.averageHeartrate)} bpm` : null;
+      const mapSvg = routeMapSvg(act.mapPolyline, mapColors[cls] || '#888');
+
+      const kudos = act.kudosCount > 0 ? `❤ ${act.kudosCount}` : '—';
 
       return `
         <div class="activity-card ${cls}">
+          ${mapSvg ? `<div class="act-map">${mapSvg}</div>` : ''}
           <div class="act-top">
             <span class="act-emoji">${actEmoji(act.type)}</span>
             <span class="act-name" title="${escHtml(act.name)}">${escHtml(act.name)}</span>
@@ -177,8 +210,16 @@ function renderActivities() {
               <div class="act-stat-mini-value">${pace ? pace + '/mi' : speed}</div>
             </div>
             <div class="act-stat-mini">
-              <div class="act-stat-mini-label">${hr ? 'HR' : 'Elev'}</div>
-              <div class="act-stat-mini-value">${hr || elev}</div>
+              <div class="act-stat-mini-label">Elev</div>
+              <div class="act-stat-mini-value">${elev}</div>
+            </div>
+            <div class="act-stat-mini">
+              <div class="act-stat-mini-label">Avg HR</div>
+              <div class="act-stat-mini-value">${hr || '—'}</div>
+            </div>
+            <div class="act-stat-mini">
+              <div class="act-stat-mini-label">Kudos</div>
+              <div class="act-stat-mini-value">${kudos}</div>
             </div>
           </div>
         </div>
@@ -209,7 +250,7 @@ function renderLeaderboard() {
   }
 
   const board = stravaData.leaderboard;
-  const medals = ['🥇', '🥈', '🥉', '4️⃣'];
+  const rankColors = ['var(--gold)', 'var(--silver)', 'var(--bronze)', 'var(--text-dim)'];
   const sortedRun  = [...board].sort((a, b) => b.runMiles - a.runMiles);
   const sortedRide = [...board].sort((a, b) => b.cyclingMiles - a.cyclingMiles);
   const maxRun  = sortedRun[0]?.runMiles || 1;
@@ -221,7 +262,7 @@ function renderLeaderboard() {
       const pct = Math.round((val / maxVal) * 100);
       return `
         <div class="lb-compact-row">
-          <span class="lb-compact-rank">${medals[i] || i + 1}</span>
+          <span class="lb-compact-rank" style="color:${rankColors[i]}">${i + 1}</span>
           <span class="lb-compact-name">${escHtml(item.name)}</span>
           <span class="lb-compact-val">${val.toFixed(1)}</span><span class="lb-compact-unit">mi</span>
         </div>
@@ -251,7 +292,7 @@ async function loadWeather() {
     if (w.error) throw new Error(w.error);
     renderWeather(w);
   } catch (err) {
-    weatherPanel.innerHTML = '<div class="loading-msg">Weather unavailable.</div>';
+    weatherBar.innerHTML = '<div class="loading-msg">Weather unavailable.</div>';
     console.error('[Weather]', err);
   }
 }
@@ -262,44 +303,48 @@ function windDir(deg) {
 
 function renderWeather(w) {
   const WI = 'https://openweathermap.org/img/wn/';
-
-  // Compact status bar entry
-  statusWeather.innerHTML = `
-    <img src="${WI}${w.icon}@2x.png" alt="" />
-    <span class="status-weather-temp">${w.temp}${w.unit}</span>
-    <span class="status-weather-desc">${escHtml(w.description)}</span>
-  `;
-
-  // Full weather panel
   const sunrise = new Date(w.sunrise * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const sunset  = new Date(w.sunset  * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  const forecastHtml = (w.forecast || []).slice(0, 6).map(f => {
+  const forecastHtml = (w.forecast || []).slice(0, 8).map(f => {
     const t = new Date(f.time * 1000).toLocaleTimeString([], { hour: 'numeric', hour12: true });
     return `
-      <div class="forecast-chip">
-        <div class="forecast-chip-time">${t}</div>
+      <div class="wb-forecast-chip">
+        <div class="wb-forecast-time">${t}</div>
         <img src="${WI}${f.icon}@2x.png" alt="" />
-        <div class="forecast-chip-temp">${f.temp}°</div>
+        <div class="wb-forecast-temp">${f.temp}°</div>
       </div>
     `;
   }).join('');
 
-  weatherPanel.innerHTML = `
-    <div class="weather-main-row">
-      <img class="weather-icon-sm" src="${WI}${w.icon}@2x.png" alt="${escHtml(w.description)}" />
-      <div class="weather-info">
-        <div class="weather-big-temp">${w.temp}${w.unit}</div>
-        <div class="weather-desc-text">${escHtml(w.description)}</div>
-        <div class="weather-feels">Feels ${w.feelsLike}${w.unit} · ${w.tempMin}° – ${w.tempMax}°</div>
-      </div>
-      <div class="weather-chips">
-        <div class="weather-chip"><span class="weather-chip-label">Humidity</span>${w.humidity}%</div>
-        <div class="weather-chip"><span class="weather-chip-label">Wind</span>${w.windSpeed} ${w.speedUnit} ${windDir(w.windDir)}</div>
-        <div class="weather-chip"><span class="weather-chip-label">Sunrise / Sunset</span>${sunrise} – ${sunset}</div>
+  weatherBar.innerHTML = `
+    <div class="wb-current">
+      <img class="wb-icon" src="${WI}${w.icon}@2x.png" alt="${escHtml(w.description)}" />
+      <div class="wb-temp">${w.temp}${w.unit}</div>
+      <div class="wb-desc-block">
+        <span class="wb-desc">${escHtml(w.description)}</span>
+        <span class="wb-feels">Feels ${w.feelsLike}${w.unit} &nbsp;·&nbsp; ${w.tempMin}° – ${w.tempMax}°</span>
       </div>
     </div>
-    ${forecastHtml ? `<div class="forecast-row">${forecastHtml}</div>` : ''}
+    <div class="wb-details">
+      <div class="wb-chip">
+        <span class="wb-chip-label">Humidity</span>
+        <span class="wb-chip-value">${w.humidity}%</span>
+      </div>
+      <div class="wb-chip">
+        <span class="wb-chip-label">Wind</span>
+        <span class="wb-chip-value">${w.windSpeed} ${w.speedUnit} ${windDir(w.windDir)}</span>
+      </div>
+      <div class="wb-chip">
+        <span class="wb-chip-label">Sunrise</span>
+        <span class="wb-chip-value">${sunrise}</span>
+      </div>
+      <div class="wb-chip">
+        <span class="wb-chip-label">Sunset</span>
+        <span class="wb-chip-value">${sunset}</span>
+      </div>
+    </div>
+    <div class="wb-forecast">${forecastHtml}</div>
   `;
 }
 

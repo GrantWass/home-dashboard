@@ -10,57 +10,55 @@
 </head>
 <body>
 
-  <!-- Status Bar -->
+  <!-- Status Bar: date | clock | setup -->
   <header class="status-bar">
-    <span class="status-clock" id="clock"></span>
     <span class="status-date" id="dateDisplay"></span>
-    <div class="status-weather" id="statusWeather"></div>
-    <span class="status-strava" id="stravaStatus">Strava: loading...</span>
-    <button class="setup-btn" id="btnSetup" title="Setup">⚙</button>
+    <span class="status-clock" id="clock"></span>
+    <div class="status-right">
+      <button class="setup-btn" id="btnSetup" title="Setup">⚙</button>
+    </div>
   </header>
+
+  <!-- Full-width Weather Bar -->
+  <div class="weather-bar" id="weatherBar">
+    <div class="loading-msg">Loading weather...</div>
+  </div>
+
+  <!-- hidden strava status for JS -->
+  <span id="stravaStatus" style="display:none"></span>
 
   <!-- Main Grid -->
   <main class="dashboard-grid">
 
-    <!-- Left: Photo slideshow + weather -->
+    <!-- Left: full-height photo -->
     <div class="left-col">
       <div class="photo-panel">
         <div class="photo-slideshow" id="photoSlideshow">
           <div class="photo-placeholder">
             <p>No photos yet.</p>
-            <p class="photo-placeholder-sub">Upload from your phone using the QR code →</p>
+            <p class="photo-placeholder-sub">Upload from your phone →</p>
           </div>
         </div>
         <div class="photo-counter-overlay" id="photoCounter" style="display:none"></div>
-      </div>
-      <div class="weather-panel" id="weatherPanel">
-        <div class="loading-msg">Loading weather...</div>
       </div>
     </div>
 
     <!-- Right: Activities + Leaderboard -->
     <div class="right-col">
+
       <div class="activities-section">
-        <div class="section-header">
-          <h2 class="section-title">Recent Activities</h2>
-          <span class="section-subtitle">Last 2 per person</span>
-        </div>
         <div class="athlete-grid" id="activityGrid">
           <div class="loading-msg" style="grid-column:1/-1">Loading activities...</div>
         </div>
       </div>
 
       <div class="leaderboard-section">
-        <div class="section-header">
-          <h2 class="section-title">This Week</h2>
-          <span class="section-subtitle" id="weekLabel"></span>
-        </div>
         <div class="leaderboard-compact" id="leaderboardCompact">
           <div class="loading-msg">Loading...</div>
         </div>
       </div>
-    </div>
 
+    </div>
   </main>
 
   <!-- Notes Ribbon -->
@@ -72,7 +70,7 @@
   </div>
 
   <!-- QR Widget -->
-  <div class="qr-widget" id="qrWidget">
+  <div class="qr-widget">
     <div class="qr-box" id="qrBox"></div>
     <div class="qr-label">Edit from phone</div>
   </div>
