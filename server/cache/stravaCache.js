@@ -166,7 +166,7 @@ async function refresh() {
   if (configured.length === 0) throw new Error('No athletes configured with credentials in .env');
 
   const results = await Promise.allSettled(
-    configured.map(a => fetchAthleteActivities(a, 20))
+    configured.map(a => fetchAthleteActivities(a, 30))
   );
 
   const allActivities = [];

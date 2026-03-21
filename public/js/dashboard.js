@@ -154,7 +154,7 @@ function formatDate(iso) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-// ───── Activities — last 2 per athlete ─────
+// ───── Activities — last 3 per athlete ─────
 function renderActivities() {
   if (!stravaData?.activities?.length) {
     activityGrid.innerHTML = '<div class="loading-msg" style="grid-column:1/-1">No activity data — complete Strava setup via ⚙</div>';
@@ -164,11 +164,11 @@ function renderActivities() {
   // Athlete list from leaderboard (preserves .env order)
   const athletes = (stravaData.leaderboard || []).map(a => ({ id: a.athleteId, name: a.name }));
 
-  // Group activities by athlete, max 2 each (already sorted newest-first)
+  // Group activities by athlete, max 3 each (already sorted newest-first)
   const byAthlete = {};
   for (const act of stravaData.activities) {
     if (!byAthlete[act.athleteId]) byAthlete[act.athleteId] = [];
-    if (byAthlete[act.athleteId].length < 2) byAthlete[act.athleteId].push(act);
+    if (byAthlete[act.athleteId].length < 3) byAthlete[act.athleteId].push(act);
   }
 
   const isRun = t => (t || '').toLowerCase().includes('run');
