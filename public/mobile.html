@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <meta name="theme-color" content="#0d0d1a" />
+  <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Dashboard — Mobile</title>
@@ -11,19 +11,24 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0d0d1a;
-      --surface: #161628;
-      --surface2: #1e1e38;
-      --border: #2a2a4a;
-      --accent: #fc4c02;
-      --accent2: #4fc3f7;
-      --accent3: #69f0ae;
-      --text: #f0f0ff;
-      --text-dim: #8888aa;
-      --text-dimmer: #4a4a6a;
+      --bg: #000000;
+      --bg2: #1c1c1e;
+      --surface: rgba(28, 28, 30, 0.9);
+      --surface2: rgba(44, 44, 46, 0.9);
+      --surface3: #3a3a3c;
+      --border: rgba(84, 84, 88, 0.5);
+      --border-solid: #38383a;
+      --accent: #0a84ff;
+      --accent2: #30d158;
+      --accent3: #ff9f0a;
+      --text: #ffffff;
+      --text-dim: rgba(235, 235, 245, 0.6);
+      --text-dimmer: rgba(235, 235, 245, 0.3);
       --radius: 16px;
       --radius-sm: 10px;
-      --font: 'Inter', system-ui, sans-serif;
+      --radius-xs: 8px;
+      --blur: blur(20px) saturate(180%);
+      --font: -apple-system, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
       --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
@@ -42,15 +47,17 @@
       position: sticky;
       top: 0;
       z-index: 10;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: var(--blur);
+      -webkit-backdrop-filter: var(--blur);
+      border-bottom: 0.5px solid var(--border);
       padding: calc(var(--safe-top) + 14px) 20px 0;
     }
 
     .header-title {
-      font-size: 1.1rem;
-      font-weight: 700;
-      letter-spacing: -0.01em;
+      font-size: 1.05rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
       padding-bottom: 4px;
     }
 
@@ -58,16 +65,16 @@
     .tabs {
       display: flex;
       gap: 0;
-      margin-top: 12px;
+      margin-top: 10px;
     }
 
     .tab {
       flex: 1;
       padding: 10px;
       text-align: center;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       font-weight: 600;
-      color: var(--text-dim);
+      color: var(--text-dimmer);
       border-bottom: 2px solid transparent;
       cursor: pointer;
       transition: color 0.15s, border-color 0.15s;
@@ -75,7 +82,8 @@
       border-top: none;
       border-left: none;
       border-right: none;
-      letter-spacing: 0.01em;
+      letter-spacing: -0.01em;
+      font-family: var(--font);
     }
 
     .tab.active {
@@ -94,8 +102,8 @@
     .notes-textarea {
       width: 100%;
       min-height: 55vh;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
       border-radius: var(--radius);
       color: var(--text);
       font-family: var(--font);
@@ -105,9 +113,12 @@
       resize: vertical;
       outline: none;
       -webkit-appearance: none;
-      transition: border-color 0.2s;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
-    .notes-textarea:focus { border-color: var(--accent2); }
+    .notes-textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.2);
+    }
     .notes-textarea::placeholder { color: var(--text-dimmer); }
 
     /* ── Buttons ── */
@@ -121,17 +132,27 @@
       border-radius: var(--radius-sm);
       border: none;
       font-size: 1rem;
-      font-weight: 700;
+      font-weight: 600;
       cursor: pointer;
       transition: opacity 0.15s, transform 0.1s;
       -webkit-tap-highlight-color: transparent;
       user-select: none;
+      font-family: var(--font);
+      letter-spacing: -0.01em;
     }
-    .btn:active { transform: scale(0.97); opacity: 0.85; }
+    .btn:active { transform: scale(0.97); opacity: 0.8; }
 
     .btn-primary { background: var(--accent); color: #fff; }
-    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-    .btn-success { background: #1a3a2a; color: var(--accent3); border: 1px solid var(--accent3); }
+    .btn-secondary {
+      background: var(--bg2);
+      color: var(--text);
+      border: 0.5px solid var(--border);
+    }
+    .btn-success {
+      background: rgba(48, 209, 88, 0.15);
+      color: var(--accent2);
+      border: 0.5px solid rgba(48, 209, 88, 0.3);
+    }
 
     .btn-row { display: flex; gap: 10px; margin-top: 12px; }
     .btn-row .btn { flex: 1; }
@@ -142,65 +163,69 @@
       bottom: calc(var(--safe-bottom) + 24px);
       left: 50%;
       transform: translateX(-50%) translateY(80px);
-      background: var(--surface2);
-      border: 1px solid var(--border);
+      background: rgba(44, 44, 46, 0.95);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      border: 0.5px solid var(--border);
       border-radius: 999px;
       padding: 10px 22px;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       font-weight: 600;
       white-space: nowrap;
       opacity: 0;
       transition: transform 0.3s ease, opacity 0.3s ease;
       z-index: 100;
       pointer-events: none;
+      letter-spacing: -0.01em;
     }
     .toast.show {
       transform: translateX(-50%) translateY(0);
       opacity: 1;
     }
-    .toast.success { color: var(--accent3); border-color: var(--accent3); }
-    .toast.error   { color: #ff6b6b; border-color: #ff6b6b; }
+    .toast.success { color: var(--accent2); }
+    .toast.error   { color: #ff453a; }
 
     /* ── Photos ── */
     .upload-zone {
-      border: 2px dashed var(--border);
+      border: 1px dashed var(--border-solid);
       border-radius: var(--radius);
       padding: 40px 20px;
       text-align: center;
       cursor: pointer;
       transition: border-color 0.2s, background 0.2s;
       -webkit-tap-highlight-color: transparent;
+      background: rgba(255, 255, 255, 0.02);
     }
     .upload-zone.drag-over {
       border-color: var(--accent);
-      background: rgba(252, 76, 2, 0.05);
+      background: rgba(10, 132, 255, 0.06);
     }
 
     .upload-icon { font-size: 3rem; margin-bottom: 12px; }
 
     .upload-zone p {
       color: var(--text-dim);
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       line-height: 1.5;
     }
 
-    .upload-zone strong { color: var(--text); }
+    .upload-zone strong { color: var(--text); font-weight: 600; }
 
     #fileInput { display: none; }
 
     .photo-preview-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+      gap: 6px;
       margin-top: 16px;
     }
 
     .photo-thumb {
       aspect-ratio: 1;
-      border-radius: var(--radius-sm);
+      border-radius: var(--radius-xs);
       overflow: hidden;
       position: relative;
-      background: var(--surface);
+      background: var(--bg2);
     }
 
     .photo-thumb img {
@@ -212,27 +237,29 @@
     .photo-thumb .remove-btn {
       position: absolute;
       top: 4px; right: 4px;
-      background: rgba(0,0,0,0.65);
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       border: none;
       color: #fff;
       border-radius: 50%;
       width: 24px; height: 24px;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
     }
 
     .upload-progress {
       margin-top: 16px;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
       border-radius: var(--radius-sm);
       overflow: hidden;
       display: none;
     }
 
     .upload-progress-bar {
-      height: 6px;
+      height: 4px;
       background: var(--accent);
       width: 0%;
       transition: width 0.3s ease;
@@ -240,14 +267,14 @@
 
     .upload-label-text {
       padding: 8px 12px;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       color: var(--text-dim);
       text-align: center;
     }
 
     /* ── Section label ── */
     .section-label {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 600;
       color: var(--text-dimmer);
       text-transform: uppercase;
@@ -258,7 +285,7 @@
     /* ── Divider ── */
     .divider {
       border: none;
-      border-top: 1px solid var(--border);
+      border-top: 0.5px solid var(--border);
       margin: 20px 0;
     }
 
@@ -271,12 +298,10 @@
     }
 
     .existing-count {
-      font-size: 0.8rem;
-      color: var(--text-dim);
+      font-size: 0.78rem;
+      color: var(--text-dimmer);
     }
   </style>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 
