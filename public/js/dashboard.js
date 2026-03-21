@@ -1,55 +1,37 @@
 /* =====================================================================
-   Home Dashboard — Kiosk JS
-   Designed for monitor display without mouse/keyboard during normal use.
-   Mouse/keyboard still work for initial setup via the ⚙ button.
+   Home Dashboard — Single-Page Kiosk JS
+   Everything visible at once on a large monitor.
    ===================================================================== */
 
-// ───── Config (persisted in localStorage) ─────
-const CONFIG = {
-  get cycleInterval() { return parseInt(localStorage.getItem('cycleInterval') || '30', 10) * 1000; },
-  set cycleInterval(v) { localStorage.setItem('cycleInterval', String(Math.floor(v / 1000))); },
-  get maxActivities() { return parseInt(localStorage.getItem('maxActivities') || '12', 10); },
-  set maxActivities(v) { localStorage.setItem('maxActivities', String(v)); },
-};
+// ───── DOM refs ─────
+const clock             = document.getElementById('clock');
+const dateDisplay       = document.getElementById('dateDisplay');
+const stravaStatus      = document.getElementById('stravaStatus');
+const statusWeather     = document.getElementById('statusWeather');
+const activityGrid      = document.getElementById('activityGrid');
+const leaderboardCompact = document.getElementById('leaderboardCompact');
+const weekLabel         = document.getElementById('weekLabel');
+const weatherPanel      = document.getElementById('weatherPanel');
+const notesText         = document.getElementById('notesText');
+const notesRibbon       = document.getElementById('notesRibbon');
+const setupModal        = document.getElementById('setupModal');
+const authLinks         = document.getElementById('authLinks');
+const slideshow         = document.getElementById('photoSlideshow');
+const photoCounter      = document.getElementById('photoCounter');
 
 // ───── State ─────
-const SECTIONS = ['activities', 'leaderboard', 'weather', 'notes', 'photos'];
-let currentSection = 0;
-let autoplayTimer = null;
-let autoplayStart = null;
-
 let stravaData = null;
 let photos = [];
 let currentPhoto = 0;
 let photoAutoTimer = null;
 
-// ───── DOM refs ─────
-const clock          = document.getElementById('clock');
-const dateDisplay    = document.getElementById('dateDisplay');
-const stravaStatus   = document.getElementById('stravaStatus');
-const activityGrid   = document.getElementById('activityGrid');
-const lbRunning      = document.getElementById('lbRunning');
-const lbCycling      = document.getElementById('lbCycling');
-const weekLabel      = document.getElementById('weekLabel');
-const weatherMain    = document.getElementById('weatherMain');
-const weatherForecast = document.getElementById('weatherForecast');
-const weatherLocation = document.getElementById('weatherLocation');
-const notesDisplay   = document.getElementById('notesDisplay');
-const setupModal     = document.getElementById('setupModal');
-const authLinks      = document.getElementById('authLinks');
-const slideshow      = document.getElementById('photoSlideshow');
-const photoCounter   = document.getElementById('photoCounter');
-
 // ───── Cursor auto-hide ─────
-// Cursor shows when mouse moves, hides after 3s idle.
-// This lets the mouse work for setup without showing it during normal display.
 let cursorHideTimer = null;
 document.addEventListener('mousemove', () => {
   document.body.classList.remove('cursor-hidden');
   clearTimeout(cursorHideTimer);
   cursorHideTimer = setTimeout(() => document.body.classList.add('cursor-hidden'), 3000);
 });
-// Start hidden
 document.body.classList.add('cursor-hidden');
 
 // ───── Clock ─────
@@ -71,56 +53,11 @@ function setWeekLabel() {
   const sun = new Date(mon);
   sun.setDate(mon.getDate() + 6);
   const fmt = d => d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  if (weekLabel) weekLabel.textContent = `Week of ${fmt(mon)} – ${fmt(sun)}`;
+  if (weekLabel) weekLabel.textContent = `${fmt(mon)} – ${fmt(sun)}`;
 }
 setWeekLabel();
 
-// ───── Section navigation ─────
-function showSection(nameOrIndex) {
-  const idx = typeof nameOrIndex === 'string' ? SECTIONS.indexOf(nameOrIndex) : nameOrIndex;
-  if (idx < 0) return;
-  currentSection = idx;
-
-  document.querySelectorAll('.panel').forEach((p, i) => {
-    p.classList.toggle('active', i === idx);
-  });
-  document.querySelectorAll('.nav-dot').forEach((b, i) => {
-    b.classList.toggle('active', i === idx);
-  });
-
-  const name = SECTIONS[idx];
-  if (name === 'weather') loadWeather();
-  if (name === 'notes')   loadNotes();
-  if (name === 'photos')  { loadPhotos(); startPhotoAuto(); }
-  else stopPhotoAuto();
-}
-
-// ───── Autoplay — always on, starts immediately ─────
-const progressContainer = document.createElement('div');
-progressContainer.className = 'autoplay-progress';
-const progressBar = document.createElement('div');
-progressBar.className = 'autoplay-progress-bar';
-progressContainer.appendChild(progressBar);
-document.body.appendChild(progressContainer);
-
-function startAutoplay() {
-  clearTimeout(autoplayTimer);
-  const duration = CONFIG.cycleInterval;
-
-  progressBar.style.transition = 'none';
-  progressBar.style.width = '0%';
-  requestAnimationFrame(() => {
-    progressBar.style.transition = `width ${duration}ms linear`;
-    progressBar.style.width = '100%';
-  });
-
-  autoplayTimer = setTimeout(() => {
-    showSection((currentSection + 1) % SECTIONS.length);
-    startAutoplay();
-  }, duration);
-}
-
-// ───── Strava data ─────
+// ───── Strava ─────
 async function loadStravaData() {
   try {
     const res = await fetch('/api/strava/data');
@@ -136,12 +73,11 @@ async function loadStravaData() {
     console.error('[Strava]', err);
   }
 }
-
 setInterval(loadStravaData, 15 * 60 * 1000);
 loadStravaData();
 
-// ───── Activities ─────
-function activityTypeClass(type) {
+// ───── Activity helpers ─────
+function actTypeClass(type) {
   if (!type) return 'other';
   const t = type.toLowerCase();
   if (t.includes('run')) return 'run';
@@ -149,7 +85,7 @@ function activityTypeClass(type) {
   return 'other';
 }
 
-function activityEmoji(type) {
+function actEmoji(type) {
   if (!type) return '🏋️';
   const t = type.toLowerCase();
   if (t.includes('run')) return '🏃';
@@ -161,145 +97,150 @@ function activityEmoji(type) {
   return '🏋️';
 }
 
-function metersToMiles(m) { return (m / 1609.34).toFixed(2); }
+function toMiles(m) { return (m / 1609.34).toFixed(1); }
 
 function formatPace(distM, timeSec) {
   if (!distM || !timeSec) return '—';
-  const paceSecPerMile = timeSec / (distM / 1609.34);
-  const mins = Math.floor(paceSecPerMile / 60);
-  const secs = Math.round(paceSecPerMile % 60).toString().padStart(2, '0');
-  return `${mins}:${secs}`;
+  const spm = timeSec / (distM / 1609.34);
+  return `${Math.floor(spm / 60)}:${Math.round(spm % 60).toString().padStart(2, '0')}`;
 }
 
 function formatSpeed(mps) {
-  if (!mps) return '—';
-  return (mps * 2.23694).toFixed(1) + ' mph';
+  return mps ? (mps * 2.23694).toFixed(1) + ' mph' : '—';
 }
 
 function formatDuration(sec) {
   if (!sec) return '—';
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
-  const s = sec % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
 function formatDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
-  const diffDays = Math.floor((Date.now() - d) / 86400000);
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
+  const diff = Math.floor((Date.now() - d) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  if (diff < 7) return `${diff}d ago`;
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+// ───── Activities — last 2 per athlete ─────
 function renderActivities() {
-  if (!stravaData?.activities) {
-    activityGrid.innerHTML = '<div class="loading-msg">No activity data.<br>Complete Strava setup via ⚙</div>';
+  if (!stravaData?.activities?.length) {
+    activityGrid.innerHTML = '<div class="loading-msg" style="grid-column:1/-1">No activity data — complete Strava setup via ⚙</div>';
     return;
   }
 
-  const acts = stravaData.activities.slice(0, CONFIG.maxActivities);
+  // Athlete list from leaderboard (preserves .env order)
+  const athletes = (stravaData.leaderboard || []).map(a => ({ id: a.athleteId, name: a.name }));
 
-  if (acts.length === 0) {
-    activityGrid.innerHTML = '<div class="loading-msg">No activities yet.</div>';
-    return;
+  // Group activities by athlete, max 2 each (already sorted newest-first)
+  const byAthlete = {};
+  for (const act of stravaData.activities) {
+    if (!byAthlete[act.athleteId]) byAthlete[act.athleteId] = [];
+    if (byAthlete[act.athleteId].length < 2) byAthlete[act.athleteId].push(act);
   }
 
   const isRun = t => (t || '').toLowerCase().includes('run');
 
-  activityGrid.innerHTML = acts.map(act => {
-    const cls = activityTypeClass(act.type);
-    const miles = metersToMiles(act.distance);
-    const pace  = isRun(act.type) ? formatPace(act.distance, act.movingTime) : null;
-    const speed = !isRun(act.type) ? formatSpeed(act.averageSpeed) : null;
-    const elev  = act.elevationGain ? `${Math.round(act.elevationGain * 3.28084)} ft` : '—';
+  const cols = athletes.map(athlete => {
+    const acts = byAthlete[athlete.id] || [];
+
+    const cards = acts.map(act => {
+      const cls   = actTypeClass(act.type);
+      const miles = toMiles(act.distance);
+      const pace  = isRun(act.type) ? formatPace(act.distance, act.movingTime) : null;
+      const speed = !isRun(act.type) ? formatSpeed(act.averageSpeed) : null;
+      const elev  = act.elevationGain ? `${Math.round(act.elevationGain * 3.281)} ft` : '—';
+      const hr    = act.averageHeartrate ? `${Math.round(act.averageHeartrate)} bpm` : null;
+
+      return `
+        <div class="activity-card ${cls}">
+          <div class="act-top">
+            <span class="act-emoji">${actEmoji(act.type)}</span>
+            <span class="act-name" title="${escHtml(act.name)}">${escHtml(act.name)}</span>
+            <span class="act-date-sm">${formatDate(act.startDate)}</span>
+          </div>
+          <div class="act-stats-mini">
+            <div class="act-stat-mini">
+              <div class="act-stat-mini-label">Dist</div>
+              <div class="act-stat-mini-value">${miles} mi</div>
+            </div>
+            <div class="act-stat-mini">
+              <div class="act-stat-mini-label">Time</div>
+              <div class="act-stat-mini-value">${formatDuration(act.movingTime)}</div>
+            </div>
+            <div class="act-stat-mini">
+              <div class="act-stat-mini-label">${pace ? 'Pace' : 'Speed'}</div>
+              <div class="act-stat-mini-value">${pace ? pace + '/mi' : speed}</div>
+            </div>
+            <div class="act-stat-mini">
+              <div class="act-stat-mini-label">${hr ? 'HR' : 'Elev'}</div>
+              <div class="act-stat-mini-value">${hr || elev}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    // Pad with placeholder if fewer than 2
+    while (cards.length < 2) {
+      cards.push('<div class="activity-card act-empty"><span class="act-empty-text">No recent activity</span></div>');
+    }
 
     return `
-      <div class="activity-card ${cls}">
-        ${act.kudosCount > 0 ? `<span class="act-kudos">❤ ${act.kudosCount}</span>` : ''}
-        <div class="act-header">
-          <div class="act-type-badge">${activityEmoji(act.type)}</div>
-          <div class="act-title-block">
-            <div class="act-name" title="${escHtml(act.name)}">${escHtml(act.name)}</div>
-            <div class="act-athlete">${escHtml(act.athleteName)}</div>
-          </div>
-          <div class="act-date">${formatDate(act.startDate)}</div>
-        </div>
-        <div class="act-stats">
-          <div class="act-stat">
-            <div class="act-stat-label">Distance</div>
-            <div class="act-stat-value">${miles} <small style="font-size:.7em;font-weight:400">mi</small></div>
-          </div>
-          <div class="act-stat">
-            <div class="act-stat-label">Time</div>
-            <div class="act-stat-value">${formatDuration(act.movingTime)}</div>
-          </div>
-          <div class="act-stat">
-            <div class="act-stat-label">${pace ? 'Pace' : 'Speed'}</div>
-            <div class="act-stat-value">${pace ? pace + '<small style="font-size:.7em;font-weight:400"> /mi</small>' : speed}</div>
-          </div>
-          <div class="act-stat">
-            <div class="act-stat-label">Elevation</div>
-            <div class="act-stat-value">${elev}</div>
-          </div>
-          ${act.averageHeartrate ? `
-          <div class="act-stat">
-            <div class="act-stat-label">Avg HR</div>
-            <div class="act-stat-value">${Math.round(act.averageHeartrate)} <small style="font-size:.7em;font-weight:400">bpm</small></div>
-          </div>` : ''}
-          <div class="act-stat">
-            <div class="act-stat-label">Type</div>
-            <div class="act-stat-value" style="font-size:.9rem">${escHtml(act.type || '—')}</div>
-          </div>
-        </div>
+      <div class="athlete-col">
+        <div class="athlete-name-label">${escHtml(athlete.name)}</div>
+        ${cards.join('')}
       </div>
     `;
   }).join('');
+
+  activityGrid.innerHTML = cols;
 }
 
-// ───── Leaderboard ─────
+// ───── Leaderboard — compact ─────
 function renderLeaderboard() {
   if (!stravaData?.leaderboard) {
-    lbRunning.innerHTML = '<li style="color:var(--text-dim);padding:14px">No data yet.</li>';
-    lbCycling.innerHTML = '<li style="color:var(--text-dim);padding:14px">No data yet.</li>';
+    leaderboardCompact.innerHTML = '<div style="color:var(--text-dim);font-size:0.85rem;padding:8px;grid-column:1/-1">No data yet.</div>';
     return;
   }
 
   const board = stravaData.leaderboard;
-  const rankColors = ['gold', 'silver', 'bronze'];
+  const medals = ['🥇', '🥈', '🥉', '4️⃣'];
   const sortedRun  = [...board].sort((a, b) => b.runMiles - a.runMiles);
   const sortedRide = [...board].sort((a, b) => b.cyclingMiles - a.cyclingMiles);
   const maxRun  = sortedRun[0]?.runMiles || 1;
   const maxRide = sortedRide[0]?.cyclingMiles || 1;
 
-  function renderList(sorted, key) {
-    return sorted.map((item, i) => {
+  function colHtml(sorted, key, maxVal, color) {
+    const rows = sorted.map((item, i) => {
       const val = item[key];
-      const pct = Math.round((val / (key === 'runMiles' ? maxRun : maxRide)) * 100);
-      const countKey = key === 'runMiles' ? 'runCount' : 'rideCount';
-      const count = item[countKey];
-      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1;
+      const pct = Math.round((val / maxVal) * 100);
       return `
-        <li class="lb-item">
-          <span class="lb-rank ${rankColors[i] || ''}">${medal}</span>
-          <div>
-            <div class="lb-name">${escHtml(item.name)}</div>
-            <div class="lb-subtext">${count} activit${count === 1 ? 'y' : 'ies'}</div>
-          </div>
-          <div>
-            <span class="lb-value">${val.toFixed(1)}</span>
-            <span class="lb-unit"> mi</span>
-          </div>
-          <div class="lb-bar" style="width:${pct}%"></div>
-        </li>
+        <div class="lb-compact-row">
+          <span class="lb-compact-rank">${medals[i] || i + 1}</span>
+          <span class="lb-compact-name">${escHtml(item.name)}</span>
+          <span class="lb-compact-val">${val.toFixed(1)}</span><span class="lb-compact-unit">mi</span>
+        </div>
+        <div class="lb-bar-track"><div class="lb-bar-fill" style="width:${pct}%;background:${color}"></div></div>
       `;
     }).join('');
+    return rows;
   }
 
-  lbRunning.innerHTML = renderList(sortedRun, 'runMiles');
-  lbCycling.innerHTML = renderList(sortedRide, 'cyclingMiles');
+  leaderboardCompact.innerHTML = `
+    <div class="lb-compact-col">
+      <div class="lb-compact-title">🏃 Running</div>
+      <div class="lb-compact-rows">${colHtml(sortedRun, 'runMiles', maxRun, 'var(--run-color)')}</div>
+    </div>
+    <div class="lb-compact-col">
+      <div class="lb-compact-title">🚴 Cycling</div>
+      <div class="lb-compact-rows">${colHtml(sortedRide, 'cyclingMiles', maxRide, 'var(--ride-color)')}</div>
+    </div>
+  `;
 }
 
 // ───── Weather ─────
@@ -310,93 +251,96 @@ async function loadWeather() {
     if (w.error) throw new Error(w.error);
     renderWeather(w);
   } catch (err) {
-    weatherMain.innerHTML = `<div class="loading-msg">Weather unavailable: ${escHtml(err.message)}</div>`;
+    weatherPanel.innerHTML = '<div class="loading-msg">Weather unavailable.</div>';
+    console.error('[Weather]', err);
   }
 }
 
-function windDirLabel(deg) {
-  const dirs = ['N','NE','E','SE','S','SW','W','NW'];
-  return dirs[Math.round(deg / 45) % 8];
+function windDir(deg) {
+  return ['N','NE','E','SE','S','SW','W','NW'][Math.round(deg / 45) % 8];
 }
 
 function renderWeather(w) {
-  weatherLocation.textContent = `${w.city}, ${w.country}`;
   const WI = 'https://openweathermap.org/img/wn/';
+
+  // Compact status bar entry
+  statusWeather.innerHTML = `
+    <img src="${WI}${w.icon}@2x.png" alt="" />
+    <span class="status-weather-temp">${w.temp}${w.unit}</span>
+    <span class="status-weather-desc">${escHtml(w.description)}</span>
+  `;
+
+  // Full weather panel
   const sunrise = new Date(w.sunrise * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const sunset  = new Date(w.sunset  * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  weatherMain.innerHTML = `
-    <div class="weather-current">
-      <img class="weather-icon-large" src="${WI}${w.icon}@4x.png" alt="${escHtml(w.description)}" />
-      <div>
-        <div class="weather-temp">${w.temp}${w.unit}</div>
-        <div class="weather-desc">${escHtml(w.description)}</div>
-        <div class="weather-feels">Feels like ${w.feelsLike}${w.unit} · ${w.tempMin}° / ${w.tempMax}°</div>
-      </div>
-    </div>
-    <div class="weather-details">
-      <div class="weather-detail">
-        <div class="weather-detail-label">Humidity</div>
-        <div class="weather-detail-value">${w.humidity}%</div>
-      </div>
-      <div class="weather-detail">
-        <div class="weather-detail-label">Wind</div>
-        <div class="weather-detail-value">${w.windSpeed} ${w.speedUnit} ${windDirLabel(w.windDir)}</div>
-      </div>
-      <div class="weather-detail">
-        <div class="weather-detail-label">Sunrise</div>
-        <div class="weather-detail-value">${sunrise}</div>
-      </div>
-      <div class="weather-detail">
-        <div class="weather-detail-label">Sunset</div>
-        <div class="weather-detail-value">${sunset}</div>
-      </div>
-    </div>
-  `;
-
-  weatherForecast.innerHTML = (w.forecast || []).map(f => {
-    const t = new Date(f.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const forecastHtml = (w.forecast || []).slice(0, 6).map(f => {
+    const t = new Date(f.time * 1000).toLocaleTimeString([], { hour: 'numeric', hour12: true });
     return `
-      <div class="forecast-card">
-        <div class="forecast-time">${t}</div>
-        <img class="forecast-icon" src="${WI}${f.icon}@2x.png" alt="${escHtml(f.description)}" />
-        <div class="forecast-temp">${f.temp}°</div>
+      <div class="forecast-chip">
+        <div class="forecast-chip-time">${t}</div>
+        <img src="${WI}${f.icon}@2x.png" alt="" />
+        <div class="forecast-chip-temp">${f.temp}°</div>
       </div>
     `;
   }).join('');
+
+  weatherPanel.innerHTML = `
+    <div class="weather-main-row">
+      <img class="weather-icon-sm" src="${WI}${w.icon}@2x.png" alt="${escHtml(w.description)}" />
+      <div class="weather-info">
+        <div class="weather-big-temp">${w.temp}${w.unit}</div>
+        <div class="weather-desc-text">${escHtml(w.description)}</div>
+        <div class="weather-feels">Feels ${w.feelsLike}${w.unit} · ${w.tempMin}° – ${w.tempMax}°</div>
+      </div>
+      <div class="weather-chips">
+        <div class="weather-chip"><span class="weather-chip-label">Humidity</span>${w.humidity}%</div>
+        <div class="weather-chip"><span class="weather-chip-label">Wind</span>${w.windSpeed} ${w.speedUnit} ${windDir(w.windDir)}</div>
+        <div class="weather-chip"><span class="weather-chip-label">Sunrise / Sunset</span>${sunrise} – ${sunset}</div>
+      </div>
+    </div>
+    ${forecastHtml ? `<div class="forecast-row">${forecastHtml}</div>` : ''}
+  `;
 }
 
-setInterval(() => {
-  if (SECTIONS[currentSection] === 'weather') loadWeather();
-}, 10 * 60 * 1000);
+setInterval(loadWeather, 10 * 60 * 1000);
 
-// ───── Notes — display only ─────
+// ───── Notes Ribbon ─────
 async function loadNotes() {
   try {
     const res = await fetch('/api/notes');
     const data = await res.json();
-    renderNotes(data.content || '');
+    renderNotesRibbon(data.content || '');
   } catch (err) {
     console.error('[Notes]', err);
   }
 }
 
-function renderNotes(content) {
+function renderNotesRibbon(content) {
+  notesText.classList.remove('scrolling');
+  notesText.style.animationDuration = '';
+
   if (!content.trim()) {
-    notesDisplay.innerHTML = '<span class="notes-empty">No notes yet — add some from your phone.</span>';
-  } else {
-    notesDisplay.textContent = content;
+    notesText.textContent = 'No notes yet — add some from your phone.';
+    return;
   }
+
+  const text = content.replace(/\n+/g, '     •     ').trim();
+  notesText.textContent = text;
+
+  requestAnimationFrame(() => {
+    const trackWidth = notesRibbon.clientWidth;
+    if (notesText.scrollWidth > trackWidth - 20) {
+      const sep = '          •          ';
+      notesText.textContent = text + sep + text;
+      const duration = Math.max((notesText.scrollWidth / 2) / 80, 10);
+      notesText.classList.add('scrolling');
+      notesText.style.animationDuration = `${duration}s`;
+    }
+  });
 }
 
-// Poll notes every 60s so phone edits appear on screen
-setInterval(async () => {
-  try {
-    const res = await fetch('/api/notes');
-    const data = await res.json();
-    renderNotes(data.content || '');
-  } catch { /* silent */ }
-}, 60 * 1000);
+setInterval(loadNotes, 60 * 1000);
 
 // ───── Photos ─────
 async function loadPhotos() {
@@ -417,10 +361,11 @@ function renderPhotoSlideshow() {
     slideshow.innerHTML = `
       <div class="photo-placeholder">
         <p>No photos yet.</p>
-        <p class="photo-placeholder-sub">Upload from your phone using the QR code →</p>
+        <p class="photo-placeholder-sub">Upload from your phone →</p>
       </div>
     `;
     if (photoCounter) photoCounter.style.display = 'none';
+    stopPhotoAuto();
     return;
   }
 
@@ -432,6 +377,7 @@ function renderPhotoSlideshow() {
     photoCounter.style.display = 'block';
     updatePhotoCounter();
   }
+  startPhotoAuto();
 }
 
 function showPhoto(idx) {
@@ -454,54 +400,33 @@ function startPhotoAuto() {
   photoAutoTimer = setInterval(() => showPhoto(currentPhoto + 1), 8000);
 }
 
-function stopPhotoAuto() {
-  clearInterval(photoAutoTimer);
-}
+function stopPhotoAuto() { clearInterval(photoAutoTimer); }
 
-// Poll for new photos every 30s
-setInterval(async () => {
-  try {
-    const res = await fetch('/api/photos');
-    const latest = await res.json();
-    if (JSON.stringify(latest) !== JSON.stringify(photos)) {
-      const wasEmpty = photos.length === 0;
-      photos = latest;
-      renderPhotoSlideshow();
-      if (wasEmpty && SECTIONS[currentSection] === 'photos') startPhotoAuto();
-    }
-  } catch { /* silent */ }
-}, 30 * 1000);
+setInterval(loadPhotos, 30 * 1000);
 
 // ───── QR Code ─────
 let mobileUrl = null;
-
 async function initQR() {
   try {
     const res = await fetch('/api/local-ip');
     const { ip, port } = await res.json();
     if (!ip) return;
-
     mobileUrl = `http://${ip}:${port}/mobile`;
-
     const qrBox = document.getElementById('qrBox');
     if (!qrBox) return;
-
     const img = document.createElement('img');
     img.src = '/api/qr.svg';
     img.alt = 'Scan to edit from phone';
-    img.style.cssText = 'width:110px;height:110px;border-radius:4px';
+    img.style.cssText = 'width:88px;height:88px;border-radius:4px';
     qrBox.appendChild(img);
   } catch (err) {
     console.warn('[QR]', err.message);
   }
 }
 
-// ───── Setup modal (mouse-accessible for initial config) ─────
+// ───── Setup modal ─────
 document.getElementById('btnSetup').addEventListener('click', async () => {
   setupModal.style.display = 'flex';
-  document.getElementById('cycleInterval').value = CONFIG.cycleInterval / 1000;
-  document.getElementById('maxActivities').value = CONFIG.maxActivities;
-
   const mobileUrlEl = document.getElementById('mobileUrl');
   if (mobileUrlEl) mobileUrlEl.textContent = mobileUrl || 'Loading…';
 
@@ -524,16 +449,11 @@ document.getElementById('btnSetup').addEventListener('click', async () => {
 });
 
 document.getElementById('btnCloseModal').addEventListener('click', () => {
-  CONFIG.cycleInterval = parseInt(document.getElementById('cycleInterval').value, 10) * 1000;
-  CONFIG.maxActivities = parseInt(document.getElementById('maxActivities').value, 10);
-  renderActivities();
   setupModal.style.display = 'none';
-  // Restart autoplay timer with updated interval
-  startAutoplay();
 });
 
 setupModal.addEventListener('click', e => {
-  if (e.target === setupModal) document.getElementById('btnCloseModal').click();
+  if (e.target === setupModal) setupModal.style.display = 'none';
 });
 
 // ───── Utils ─────
@@ -546,8 +466,7 @@ function escHtml(str) {
 }
 
 // ───── Init ─────
-showSection(0);
-startAutoplay();   // always on from the start
+loadStravaData();
 loadWeather();
 loadNotes();
 loadPhotos();

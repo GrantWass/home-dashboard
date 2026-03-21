@@ -9,114 +9,75 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <!-- Section indicator (display only — dots show which section is active) -->
-  <nav class="section-nav" id="sectionNav">
-    <div class="nav-dot active" data-section="activities">
-      <span class="nav-icon">🏃</span>
-      <span class="nav-label">Activities</span>
-    </div>
-    <div class="nav-dot" data-section="leaderboard">
-      <span class="nav-icon">🏆</span>
-      <span class="nav-label">Leaderboard</span>
-    </div>
-    <div class="nav-dot" data-section="weather">
-      <span class="nav-icon">🌤</span>
-      <span class="nav-label">Weather</span>
-    </div>
-    <div class="nav-dot" data-section="notes">
-      <span class="nav-icon">📝</span>
-      <span class="nav-label">Notes</span>
-    </div>
-    <div class="nav-dot" data-section="photos">
-      <span class="nav-icon">📸</span>
-      <span class="nav-label">Photos</span>
-    </div>
 
-    <!-- Setup button — only useful during initial config with a mouse -->
-    <button class="nav-setup-btn" id="btnSetup" title="Setup (use mouse during initial config)">⚙</button>
-  </nav>
-
-  <!-- Top status bar — info display only -->
-  <div class="status-bar" id="statusBar">
+  <!-- Status Bar -->
+  <header class="status-bar">
     <span class="status-clock" id="clock"></span>
     <span class="status-date" id="dateDisplay"></span>
+    <div class="status-weather" id="statusWeather"></div>
     <span class="status-strava" id="stravaStatus">Strava: loading...</span>
-  </div>
+    <button class="setup-btn" id="btnSetup" title="Setup">⚙</button>
+  </header>
 
-  <!-- ==================== SECTIONS ==================== -->
-  <main class="dashboard">
+  <!-- Main Grid -->
+  <main class="dashboard-grid">
 
-    <!-- Activities Section -->
-    <section class="panel active" id="section-activities">
-      <div class="panel-header">
-        <h1 class="panel-title">Recent Activities</h1>
-      </div>
-      <div class="activity-grid" id="activityGrid">
-        <div class="loading-msg">Loading activities...</div>
-      </div>
-    </section>
-
-    <!-- Leaderboard Section -->
-    <section class="panel" id="section-leaderboard">
-      <div class="panel-header">
-        <h1 class="panel-title">Weekly Leaderboard</h1>
-        <span class="panel-subtitle" id="weekLabel"></span>
-      </div>
-      <div class="leaderboard-wrapper">
-        <div class="leaderboard-col">
-          <h2 class="lb-category"><span class="lb-icon">🏃</span> Running Miles</h2>
-          <ol class="lb-list" id="lbRunning"></ol>
+    <!-- Left: Photo slideshow + weather -->
+    <div class="left-col">
+      <div class="photo-panel">
+        <div class="photo-slideshow" id="photoSlideshow">
+          <div class="photo-placeholder">
+            <p>No photos yet.</p>
+            <p class="photo-placeholder-sub">Upload from your phone using the QR code →</p>
+          </div>
         </div>
-        <div class="leaderboard-col">
-          <h2 class="lb-category"><span class="lb-icon">🚴</span> Cycling Miles</h2>
-          <ol class="lb-list" id="lbCycling"></ol>
-        </div>
+        <div class="photo-counter-overlay" id="photoCounter" style="display:none"></div>
       </div>
-    </section>
-
-    <!-- Weather Section -->
-    <section class="panel" id="section-weather">
-      <div class="panel-header">
-        <h1 class="panel-title">Weather</h1>
-        <span class="panel-subtitle" id="weatherLocation"></span>
-      </div>
-      <div class="weather-main" id="weatherMain">
+      <div class="weather-panel" id="weatherPanel">
         <div class="loading-msg">Loading weather...</div>
       </div>
-      <div class="weather-forecast" id="weatherForecast"></div>
-    </section>
+    </div>
 
-    <!-- Notes Section — read-only display, edit from phone -->
-    <section class="panel" id="section-notes">
-      <div class="panel-header">
-        <h1 class="panel-title">Notes</h1>
-        <span class="panel-subtitle">Edit from your phone ↗</span>
-      </div>
-      <div class="notes-display" id="notesDisplay">
-        <span class="notes-empty">No notes yet — add some from your phone.</span>
-      </div>
-    </section>
-
-    <!-- Photos Section -->
-    <section class="panel" id="section-photos">
-      <div class="photo-slideshow" id="photoSlideshow">
-        <div class="photo-placeholder">
-          <p>No photos yet.</p>
-          <p class="photo-placeholder-sub">Upload from your phone using the QR code →</p>
+    <!-- Right: Activities + Leaderboard -->
+    <div class="right-col">
+      <div class="activities-section">
+        <div class="section-header">
+          <h2 class="section-title">Recent Activities</h2>
+          <span class="section-subtitle">Last 2 per person</span>
+        </div>
+        <div class="athlete-grid" id="activityGrid">
+          <div class="loading-msg" style="grid-column:1/-1">Loading activities...</div>
         </div>
       </div>
-      <!-- Minimal overlay counter, no buttons -->
-      <div class="photo-counter-overlay" id="photoCounter" style="display:none"></div>
-    </section>
+
+      <div class="leaderboard-section">
+        <div class="section-header">
+          <h2 class="section-title">This Week</h2>
+          <span class="section-subtitle" id="weekLabel"></span>
+        </div>
+        <div class="leaderboard-compact" id="leaderboardCompact">
+          <div class="loading-msg">Loading...</div>
+        </div>
+      </div>
+    </div>
+
   </main>
 
-  <!-- QR Code widget — always visible, scan to edit from phone -->
+  <!-- Notes Ribbon -->
+  <div class="notes-ribbon">
+    <span class="ribbon-icon">📝</span>
+    <div class="ribbon-track" id="notesRibbon">
+      <span class="ribbon-text" id="notesText">Loading notes...</span>
+    </div>
+  </div>
+
+  <!-- QR Widget -->
   <div class="qr-widget" id="qrWidget">
     <div class="qr-box" id="qrBox"></div>
     <div class="qr-label">Edit from phone</div>
   </div>
 
-  <!-- Setup Modal — accessible via ⚙ during initial mouse-based config -->
+  <!-- Setup Modal -->
   <div class="modal-backdrop" id="setupModal" style="display:none">
     <div class="modal">
       <div class="modal-header">
@@ -125,23 +86,12 @@
       </div>
       <div class="modal-body">
         <h3>Mobile Companion</h3>
-        <p>Roommates can add photos and edit notes from their phone by scanning the QR code, or visiting:</p>
+        <p>Scan the QR code or visit:</p>
         <div id="mobileUrl" style="margin:10px 0;padding:10px 14px;background:var(--surface2);border-radius:8px;font-family:monospace;font-size:.9rem;color:var(--accent2)"></div>
         <hr />
         <h3>Strava Athletes</h3>
-        <p>Each athlete must authorize the app once. Visit these links in any browser on the Pi:</p>
+        <p>Each athlete must authorize the app once. Visit these links in any browser:</p>
         <div id="authLinks"></div>
-        <hr />
-        <h3>Cycle Interval</h3>
-        <label>Auto-cycle every
-          <input type="number" id="cycleInterval" value="30" min="5" max="600" style="width:70px;margin:0 6px" />
-          seconds
-        </label>
-        <hr />
-        <h3>Activities to show</h3>
-        <label>Max activities
-          <input type="number" id="maxActivities" value="12" min="3" max="30" style="width:70px;margin:0 6px" />
-        </label>
       </div>
     </div>
   </div>

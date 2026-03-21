@@ -3,26 +3,25 @@ const axios = require('axios');
 const router = express.Router();
 const stravaCache = require('../cache/stravaCache');
 
-const CLIENT_ID = process.env.STRAVA_CLIENT_ID;
-const CLIENT_SECRET = process.env.STRAVA_CLIENT_SECRET;
-const REDIRECT_URI_BASE = `http://localhost:${process.env.PORT || 3000}/api/strava/callback`;
+function getRedirectUri(req) {
+  const host = req.headers.host || `localhost:${process.env.PORT || 3000}`;
+  return `http://${host}/api/strava/callback`;
+}
 
 // GET /api/strava/data — returns cached activities and leaderboard
 router.get('/data', (req, res) => {
-  const data = stravaCache.getCache();
-  res.json(data);
+  res.json(stravaCache.getCache());
 });
 
 // GET /api/strava/athletes — list configured athletes and their token status
 router.get('/athletes', (req, res) => {
   const tokens = stravaCache.loadTokens();
-  const athletes = stravaCache.athletes.map((a, i) => ({
-    index: i,
-    id: a.id,
+  res.json(stravaCache.athletes.map(a => ({
+    index: a.index,
     name: a.name,
-    hasToken: !!tokens[a.id],
-  }));
-  res.json(athletes);
+    hasCredentials: !!(a.clientId && a.clientSecret),
+    hasToken: !!tokens[a.index],
+  })));
 });
 
 // GET /api/strava/auth/:athleteIndex — redirect to Strava OAuth for athlete N
@@ -30,8 +29,16 @@ router.get('/auth/:athleteIndex', (req, res) => {
   const index = parseInt(req.params.athleteIndex, 10);
   const athlete = stravaCache.athletes[index];
   if (!athlete) return res.status(404).json({ error: 'Athlete index not found' });
+  if (!athlete.clientId || !athlete.clientSecret) {
+    return res.status(400).send(`
+      <html><body style="font-family:sans-serif;padding:2rem;background:#1a1a2e;color:#eee;">
+        <h2>⚠ Missing credentials for ${athlete.name}</h2>
+        <p>Add <code>STRAVA_ATHLETE_${index}_CLIENT_ID</code> and <code>STRAVA_ATHLETE_${index}_CLIENT_SECRET</code> to your .env file first.</p>
+      </body></html>
+    `);
+  }
 
-  const url = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI_BASE)}&approval_prompt=auto&scope=read,activity:read&state=${index}`;
+  const url = `https://www.strava.com/oauth/authorize?client_id=${athlete.clientId}&response_type=code&redirect_uri=${encodeURIComponent(getRedirectUri(req))}&approval_prompt=auto&scope=read,activity:read&state=${index}`;
   res.redirect(url);
 });
 
@@ -46,13 +53,14 @@ router.get('/callback', async (req, res) => {
 
   try {
     const tokenRes = await axios.post('https://www.strava.com/oauth/token', {
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
+      client_id: athlete.clientId,
+      client_secret: athlete.clientSecret,
       code,
       grant_type: 'authorization_code',
+      redirect_uri: getRedirectUri(req),
     });
 
-    stravaCache.storeToken(athlete.id, tokenRes.data);
+    stravaCache.storeToken(index, tokenRes.data);
     res.send(`
       <html><body style="font-family:sans-serif;padding:2rem;background:#1a1a2e;color:#eee;">
         <h2>✓ Strava connected for ${athlete.name}</h2>

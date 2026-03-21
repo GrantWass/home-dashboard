@@ -99,4 +99,16 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`  Local:   http://localhost:${PORT}`);
   console.log(`  Network: http://${localIp}:${PORT}`);
   console.log(`  Mobile:  http://${localIp}:${PORT}/mobile`);
+
+  // Print auth URLs for any athletes missing tokens
+  const tokens = stravaCache.loadTokens();
+  const missing = stravaCache.athletes.filter(a => !tokens[a.id]);
+  if (missing.length > 0) {
+    console.log(`\n[STRAVA] Auth needed for ${missing.length} athlete(s):`);
+    missing.forEach((a, i) => {
+      const idx = stravaCache.athletes.indexOf(a);
+      console.log(`  ${a.name}: http://${localIp}:${PORT}/api/strava/auth/${idx}`);
+    });
+    console.log('');
+  }
 });
