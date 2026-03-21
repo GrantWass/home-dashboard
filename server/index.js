@@ -9,6 +9,7 @@ const stravaRouter = require('./routes/strava');
 const weatherRouter = require('./routes/weather');
 const notesRouter = require('./routes/notes');
 const photosRouter = require('./routes/photos');
+const quotesRouter = require('./routes/quotes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,6 +23,7 @@ app.use('/api/strava', stravaRouter);
 app.use('/api/weather', weatherRouter);
 app.use('/api/notes', notesRouter);
 app.use('/api/photos', photosRouter);
+app.use('/api/quotes', quotesRouter);
 
 // Serve dashboard
 app.get('/', (req, res) => {

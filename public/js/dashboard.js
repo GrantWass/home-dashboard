@@ -545,10 +545,60 @@ function escHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+// ───── Quotes ribbon ─────
+let quotesData = [];
+
+async function loadQuotes() {
+  try {
+    const res = await fetch('/api/quotes');
+    const latest = await res.json();
+    if (JSON.stringify(latest) !== JSON.stringify(quotesData)) {
+      quotesData = latest;
+      renderQuotesTicker();
+    }
+  } catch (err) {
+    console.error('[Quotes]', err);
+  }
+}
+
+function renderQuotesTicker() {
+  const track = document.getElementById('quotesTrack');
+  if (!track) return;
+
+  if (quotesData.length === 0) {
+    track.style.animation = 'none';
+    track.innerHTML = '<span class="quote-placeholder">Add quotes from your phone ↗</span>';
+    return;
+  }
+
+  const items = quotesData.map(q => {
+    const author = q.author ? `<span class="quote-author">— ${escHtml(q.author)}</span>` : '';
+    return `<span class="quote-item">"${escHtml(q.text)}" ${author}</span><span class="quote-sep" aria-hidden="true">●</span>`;
+  }).join('');
+
+  // Duplicate content for seamless infinite loop
+  track.style.animation = 'none';
+  track.innerHTML = items + items;
+
+  // Measure width after paint, then start animation
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const totalWidth = track.scrollWidth / 2; // half because duplicated
+      const pixelsPerSecond = 60;
+      const duration = Math.max(totalWidth / pixelsPerSecond, 8);
+      track.style.animation = `ticker-scroll ${duration}s linear infinite`;
+    });
+  });
+}
+
+// Refresh quotes every 2 minutes
+setInterval(loadQuotes, 2 * 60 * 1000);
+
 // ───── Init ─────
 showSection(0);
 startAutoplay();   // always on from the start
 loadWeather();
 loadNotes();
 loadPhotos();
+loadQuotes();
 initQR();

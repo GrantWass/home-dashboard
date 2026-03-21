@@ -310,6 +310,7 @@
   <div class="tabs">
     <button class="tab active" data-tab="notes">📝 Notes</button>
     <button class="tab" data-tab="photos">📸 Photos</button>
+    <button class="tab" data-tab="quotes">💬 Quotes</button>
   </div>
 </div>
 
@@ -353,6 +354,27 @@
     <span class="existing-count" id="existingCount"></span>
   </div>
   <div class="photo-preview-grid" id="existingGrid"></div>
+</div>
+
+<!-- Quotes Panel -->
+<div class="panel" id="panel-quotes">
+  <div style="height:16px"></div>
+  <div class="section-label">Add a Quote</div>
+  <textarea class="notes-textarea" id="quoteText" style="min-height:100px;resize:none"
+    placeholder="The quote text…"></textarea>
+  <textarea class="notes-textarea" id="quoteAuthor" style="min-height:52px;resize:none;margin-top:8px"
+    placeholder="Author (optional)"></textarea>
+  <div class="btn-row">
+    <button class="btn btn-primary" id="btnAddQuote">Add to Ribbon</button>
+  </div>
+
+  <hr class="divider" />
+
+  <div class="existing-header">
+    <div class="section-label" style="margin-bottom:0">On the Ribbon</div>
+    <span class="existing-count" id="quoteCount"></span>
+  </div>
+  <div id="quotesList"></div>
 </div>
 
 <!-- Toast -->
@@ -554,6 +576,78 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
+
+  // ── Quotes ──
+  async function loadQuotes() {
+    try {
+      const res = await fetch('/api/quotes');
+      const quotes = await res.json();
+      renderQuotesList(quotes);
+    } catch {
+      showToast('Could not load quotes', 'error');
+    }
+  }
+
+  function renderQuotesList(quotes) {
+    const list = document.getElementById('quotesList');
+    const count = document.getElementById('quoteCount');
+    count.textContent = `${quotes.length} quote${quotes.length !== 1 ? 's' : ''}`;
+
+    if (quotes.length === 0) {
+      list.innerHTML = '<p style="color:var(--text-dimmer);font-size:.85rem;padding:4px 0">No quotes yet.</p>';
+      return;
+    }
+
+    list.innerHTML = quotes.map(q => `
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:0.5px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.9rem;line-height:1.5;color:var(--text);font-style:italic">"${escHtml(q.text)}"</div>
+          ${q.author ? `<div style="font-size:.78rem;color:var(--text-dimmer);margin-top:3px">— ${escHtml(q.author)}</div>` : ''}
+        </div>
+        <button class="remove-btn" data-id="${q.id}"
+          style="flex-shrink:0;background:rgba(255,69,58,0.15);border:0.5px solid rgba(255,69,58,0.3);color:#ff453a;border-radius:6px;width:28px;height:28px;font-size:.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+      </div>
+    `).join('');
+
+    list.querySelectorAll('.remove-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        try {
+          await fetch(`/api/quotes/${btn.dataset.id}`, { method: 'DELETE' });
+          await loadQuotes();
+          showToast('Quote removed');
+        } catch {
+          showToast('Could not remove quote', 'error');
+        }
+      });
+    });
+  }
+
+  document.getElementById('btnAddQuote').addEventListener('click', async () => {
+    const text = document.getElementById('quoteText').value.trim();
+    const author = document.getElementById('quoteAuthor').value.trim();
+    if (!text) { showToast('Quote text is required', 'error'); return; }
+    try {
+      const res = await fetch('/api/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, author }),
+      });
+      if (!res.ok) throw new Error();
+      document.getElementById('quoteText').value = '';
+      document.getElementById('quoteAuthor').value = '';
+      await loadQuotes();
+      showToast('✓ Quote added!');
+    } catch {
+      showToast('Could not add quote', 'error');
+    }
+  });
+
+  // Load quotes when tab is opened
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      if (tab.dataset.tab === 'quotes') loadQuotes();
+    });
+  });
 </script>
 </body>
 </html>

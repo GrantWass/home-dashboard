@@ -182,7 +182,7 @@ body.cursor-hidden * { cursor: none !important; }
   top: var(--status-h);
   left: var(--nav-w);
   right: 0;
-  bottom: 0;
+  bottom: 46px; /* 44px ribbon + 2px progress bar */
   overflow: hidden;
 }
 
@@ -530,7 +530,7 @@ body.cursor-hidden * { cursor: none !important; }
 /* ===== QR WIDGET — always visible ===== */
 .qr-widget {
   position: fixed;
-  bottom: 20px;
+  bottom: 68px; /* above ribbon (44px) + breathing room */
   right: 20px;
   z-index: 60;
   background: var(--surface);
@@ -662,10 +662,10 @@ body.cursor-hidden * { cursor: none !important; }
 /* ===== AUTOPLAY PROGRESS BAR ===== */
 .autoplay-progress {
   position: fixed;
-  bottom: 0; left: var(--nav-w); right: 0;
+  bottom: 44px; left: var(--nav-w); right: 0;
   height: 2px;
   background: rgba(255, 255, 255, 0.06);
-  z-index: 50;
+  z-index: 56;
 }
 .autoplay-progress-bar {
   height: 100%;
@@ -673,6 +673,66 @@ body.cursor-hidden * { cursor: none !important; }
   width: 0%;
   transition: width linear;
   border-radius: 0 2px 2px 0;
+}
+
+/* ===== QUOTES RIBBON ===== */
+.quotes-ribbon {
+  position: fixed;
+  bottom: 0;
+  left: var(--nav-w);
+  right: 0;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-top: 0.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  z-index: 55;
+}
+
+.quotes-track {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.quote-item {
+  font-size: 0.85rem;
+  color: rgba(235, 235, 245, 0.6);
+  font-style: italic;
+  letter-spacing: -0.01em;
+  padding: 0 16px;
+}
+
+.quote-author {
+  font-style: normal;
+  font-weight: 500;
+  color: rgba(235, 235, 245, 0.35);
+  margin-left: 6px;
+}
+
+.quote-sep {
+  color: rgba(10, 132, 255, 0.4);
+  margin: 0 8px;
+  font-style: normal;
+  font-size: 0.5rem;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.quote-placeholder {
+  font-size: 0.8rem;
+  color: rgba(235, 235, 245, 0.25);
+  font-style: italic;
+  padding: 0 40px;
 }
 
 /* ===== SCROLLBAR ===== */
