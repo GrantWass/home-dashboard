@@ -219,15 +219,17 @@ body.cursor-hidden * { cursor: none !important; }
   overflow: hidden;
 }
 
-/* ===== LEFT COLUMN — full-height photo ===== */
+/* ===== LEFT COLUMN — photo & goals ===== */
 .left-col {
   border-right: 1px solid var(--border);
   overflow: hidden;
   position: relative;
+  display: grid;
+  grid-template-rows: 20% 80%;
 }
 
 .photo-panel {
-  position: absolute;
+  position: relative;
   inset: 0;
 }
 
@@ -271,6 +273,54 @@ body.cursor-hidden * { cursor: none !important; }
   font-size: 0.68rem;
   pointer-events: none;
   z-index: 10;
+}
+
+.goals-panel {
+  position: relative;
+  inset: 0;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  padding: 3px;
+}
+
+.goal-card {
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.goal-card-name {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent2);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  flex-shrink: 0;
+}
+
+.goal-card-text {
+  font-size: 0.78rem;
+  color: var(--text);
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  flex: 1;
+}
+
+.goal-card-text.empty {
+  color: var(--text-dimmer);
+  font-style: italic;
 }
 
 /* ===== RIGHT COLUMN ===== */

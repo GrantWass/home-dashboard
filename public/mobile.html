@@ -262,6 +262,59 @@
       margin: 20px 0;
     }
 
+    /* ── Goals ── */
+    .goal-person {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    .goal-person-name {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--accent2);
+    }
+
+    .goal-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      padding: 12px;
+      resize: none;
+      outline: none;
+      -webkit-appearance: none;
+      transition: border-color 0.2s;
+      min-height: 72px;
+      display: block;
+      margin-bottom: 10px;
+    }
+    .goal-input:focus { border-color: var(--accent2); }
+    .goal-input::placeholder { color: var(--text-dimmer); }
+
+    .btn-save-goal {
+      width: 100%;
+      padding: 11px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      transition: opacity 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-save-goal:active { transform: scale(0.97); opacity: 0.85; }
+    .btn-save-goal:disabled { opacity: 0.4; cursor: default; }
+
     /* ── Existing photos list ── */
     .existing-header {
       display: flex;
@@ -284,6 +337,7 @@
   <div class="header-title">🏠 Home Dashboard</div>
   <div class="tabs">
     <button class="tab active" data-tab="notes">📝 Notes</button>
+    <button class="tab" data-tab="goals">🎯 Goals</button>
     <button class="tab" data-tab="photos">📸 Photos</button>
   </div>
 </div>
@@ -298,6 +352,15 @@
   </div>
   <div style="height:8px"></div>
   <button class="btn btn-secondary" id="btnReload">↻ Reload</button>
+</div>
+
+<!-- Goals Panel -->
+<div class="panel" id="panel-goals">
+  <div style="height:16px"></div>
+  <div class="section-label">Set Your Goal</div>
+  <div id="goalsContainer">
+    <div style="color:var(--text-dimmer);font-size:.9rem;padding:20px 0">Loading goals...</div>
+  </div>
 </div>
 
 <!-- Photos Panel -->
@@ -385,6 +448,60 @@
   });
 
   loadNotes();
+
+  // ── Goals ──
+  async function loadGoals() {
+    const container = document.getElementById('goalsContainer');
+    try {
+      const [goalsRes, namesRes] = await Promise.all([
+        fetch('/api/goals'),
+        fetch('/api/goals/names'),
+      ]);
+      const goals = await goalsRes.json();
+      const names = await namesRes.json();
+
+      container.innerHTML = names.map(name => `
+        <div class="goal-person">
+          <div class="goal-person-name">🎯 ${escHtml(name)}</div>
+          <textarea
+            class="goal-input"
+            id="goal-input-${escHtml(name)}"
+            placeholder="What's your goal?"
+            maxlength="280"
+          >${escHtml(goals[name] || '')}</textarea>
+          <button class="btn-save-goal" data-name="${escHtml(name)}">Save</button>
+        </div>
+      `).join('');
+
+      container.querySelectorAll('.btn-save-goal').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const name = btn.dataset.name;
+          const input = document.getElementById(`goal-input-${name}`);
+          btn.disabled = true;
+          btn.textContent = 'Saving…';
+          try {
+            const res = await fetch(`/api/goals/${encodeURIComponent(name)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ goal: input.value }),
+            });
+            if (!res.ok) throw new Error();
+            btn.textContent = '✓ Saved!';
+            showToast(`✓ ${name}'s goal saved!`);
+            setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1800);
+          } catch {
+            btn.textContent = 'Save';
+            btn.disabled = false;
+            showToast('Save failed', 'error');
+          }
+        });
+      });
+    } catch {
+      container.innerHTML = '<p style="color:var(--text-dimmer);font-size:.85rem">Could not load goals.</p>';
+    }
+  }
+
+  loadGoals();
 
   // ── Photos ──
   let selectedFiles = [];

@@ -16,6 +16,7 @@ const setupModal         = document.getElementById('setupModal');
 const authLinks          = document.getElementById('authLinks');
 const slideshow          = document.getElementById('photoSlideshow');
 const photoCounter       = document.getElementById('photoCounter');
+const goalsPanel         = document.getElementById('goalsPanel');
 
 // ───── State ─────
 let stravaData = null;
@@ -533,9 +534,38 @@ function escHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+// ───── Goals ─────
+async function loadGoals() {
+  try {
+    const res = await fetch('/api/goals');
+    const goals = await res.json();
+    renderGoals(goals);
+  } catch (err) {
+    console.error('[Goals]', err);
+  }
+}
+
+function renderGoals(goals) {
+  if (!goalsPanel) return;
+  const entries = Object.entries(goals);
+  if (entries.length === 0) {
+    goalsPanel.innerHTML = '<div class="goal-card loading-msg" style="grid-column:1/-1">No goals yet.</div>';
+    return;
+  }
+  goalsPanel.innerHTML = entries.map(([name, text]) => `
+    <div class="goal-card">
+      <div class="goal-card-name">${escHtml(name)}</div>
+      <div class="goal-card-text${text.trim() ? '' : ' empty'}">${text.trim() ? escHtml(text) : 'No goal set'}</div>
+    </div>
+  `).join('');
+}
+
+setInterval(loadGoals, 60 * 1000);
+
 // ───── Init ─────
 loadStravaData();
 loadWeather();
 loadNotes();
 loadPhotos();
+loadGoals();
 initQR();
